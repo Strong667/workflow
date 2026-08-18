@@ -14,14 +14,21 @@ export default defineConfig(({ mode }) => {
       },
     },
     server: {
-      port: 5173,
+      // Свои порты, отличные от дефолтных: на машине рядом крутятся другие проекты.
+      port: Number(env.VITE_PORT) || 5188,
+      // Без strictPort Vite при занятом порте молча уходит на соседний,
+      // который может принадлежать другому проекту.
+      strictPort: true,
       proxy: {
         '/api': {
-          // Порт бэкенда переопределяется через VITE_API_PROXY, если 8000 занят.
-          target: env.VITE_API_PROXY || 'http://127.0.0.1:8000',
+          target: env.VITE_API_PROXY || 'http://127.0.0.1:8088',
           changeOrigin: true,
         },
       },
+    },
+    preview: {
+      port: Number(env.VITE_PREVIEW_PORT) || 5189,
+      strictPort: true,
     },
     build: {
       // Ручное разделение вендорного кода, чтобы initial-чанк оставался лёгким.

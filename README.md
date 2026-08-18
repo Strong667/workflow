@@ -27,10 +27,10 @@ cp .env.example .env
 php artisan key:generate
 php artisan jwt:secret
 php artisan migrate --seed
-php artisan serve
+php artisan serve --port=8088
 ```
 
-API поднимется на `http://127.0.0.1:8000`.
+API поднимется на `http://127.0.0.1:8088`.
 
 ### 2. Frontend
 
@@ -40,11 +40,16 @@ npm install
 npm run dev
 ```
 
-Интерфейс — `http://localhost:5173`. Dev-сервер проксирует `/api` на бэкенд (по умолчанию `http://127.0.0.1:8000`), поэтому CORS в разработке не требуется. Если 8000 занят, поднимите API на другом порту и укажите его в `frontend/.env`:
+Интерфейс — `http://localhost:5188`.
+
+Порты по умолчанию — **8088** (API) и **5188** (фронтенд): на машине разработчика рядом работают другие проекты, поэтому дефолтные 8000 и 5173 не используются. Переопределяются в `frontend/.env`:
 
 ```
-VITE_API_PROXY=http://127.0.0.1:8001
+VITE_PORT=5188
+VITE_API_PROXY=http://127.0.0.1:8088
 ```
+
+Dev-сервер проксирует `/api` на бэкенд, поэтому CORS в разработке не требуется. У Vite включён `strictPort`: при занятом порте он остановится с ошибкой, а не займёт соседний порт чужого проекта.
 
 ### Демо-доступы
 
@@ -126,12 +131,12 @@ Login · Dashboard · Сотрудники · Создание сотрудни�
 
 ```bash
 # frontend
-npm run dev        # дев-сервер
+npm run dev        # дев-сервер на 5188
 npm run build      # прод-сборка (vue-tsc + vite build)
-npm run preview    # предпросмотр сборки
+npm run preview    # предпросмотр сборки на 5189
 
 # backend
-php artisan serve
+php artisan serve --port=8088
 php artisan migrate:fresh --seed
 ```
 
