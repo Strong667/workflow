@@ -1,40 +1,45 @@
 import { fileURLToPath, URL } from 'node:url'
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import vue from '@vitejs/plugin-vue'
 
 // https://vite.dev/config/
-export default defineConfig({
-  plugins: [vue()],
-  resolve: {
-    alias: {
-      '@': fileURLToPath(new URL('./src', import.meta.url)),
-    },
-  },
-  server: {
-    port: 5173,
-    proxy: {
-      '/api': {
-        target: 'http://127.0.0.1:8000',
-        changeOrigin: true,
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '')
+
+  return {
+    plugins: [vue()],
+    resolve: {
+      alias: {
+        '@': fileURLToPath(new URL('./src', import.meta.url)),
       },
     },
-  },
-  build: {
-    // Ручное разделение вендорного кода, чтобы initial-чанк оставался лёгким.
-    rollupOptions: {
-      output: {
-        manualChunks(id: string) {
-          if (!id.includes('node_modules')) return undefined
-          if (id.includes('element-plus')) return 'element'
-          if (id.includes('vue-i18n') || id.includes('@intlify')) return 'i18n'
-          if (id.includes('vue-router') || id.includes('pinia') || id.includes('/@vue/') || id.includes('/vue/')) {
-            return 'vue'
-          }
-          return undefined
+    server: {
+      port: 5173,
+      proxy: {
+        '/api': {
+          // Порт бэкенда переопределяется через VITE_API_PROXY, если 8000 занят.
+          target: env.VITE_API_PROXY || 'http://127.0.0.1:8000',
+          changeOrigin: true,
         },
       },
     },
-    // Element Plus намеренно вынесен в один долгоживущий вендорный чанк.
-    chunkSizeWarningLimit: 1100,
-  },
+    build: {
+      // Ручное разделение вендорного кода, чтобы initial-чанк оставался лёгким.
+      rollupOptions: {
+        output: {
+          manualChunks(id: string) {
+            if (!id.includes('node_modules')) return undefined
+            if (id.includes('element-plus')) return 'element'
+            if (id.includes('vue-i18n') || id.includes('@intlify')) return 'i18n'
+            if (id.includes('vue-router') || id.includes('pinia') || id.includes('/@vue/') || id.includes('/vue/')) {
+              return 'vue'
+            }
+            return undefined
+          },
+        },
+      },
+      // Element Plus намеренно вынесен в один долгоживущий вендорный чанк.
+      chunkSizeWarningLimit: 1100,
+    },
+  }
 })

@@ -35,10 +35,20 @@ export function getStoredLocale(): Locale {
 
 const loaded = new Set<Locale>(['ru'])
 
+/**
+ * Загрузчики перечислены явно: шаблонный import() Vite не разбирает статически,
+ * и в прод-сборке такие чанки не создаются.
+ */
+const loaders: Record<Locale, () => Promise<{ default: MessageSchema }>> = {
+  ru: () => import('./ru'),
+  en: () => import('./en'),
+  kk: () => import('./kk'),
+}
+
 /** Догружает файл переводов по требованию — отдельным чанком. */
 export async function setLocale(locale: Locale): Promise<void> {
   if (!loaded.has(locale)) {
-    const messages = await import(`./${locale}.ts`)
+    const messages = await loaders[locale]()
     i18n.global.setLocaleMessage(locale, messages.default)
     loaded.add(locale)
   }
