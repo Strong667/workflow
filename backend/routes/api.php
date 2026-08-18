@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Route;
 Route::post('login', [AuthController::class, 'login'])->middleware('throttle:10,1');
 Route::post('refresh', [AuthController::class, 'refresh'])->middleware('throttle:30,1');
 
-Route::middleware('jwt.auth')->group(function () {
+Route::middleware('jwt.guard')->group(function () {
     Route::post('logout', [AuthController::class, 'logout']);
     Route::get('me', [AuthController::class, 'me']);
     Route::put('profile', [ProfileController::class, 'update']);

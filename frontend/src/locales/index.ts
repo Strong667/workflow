@@ -25,6 +25,14 @@ export const i18n = createI18n<[MessageSchema], Locale, false>({
   messages: { ru } as Record<Locale, MessageSchema>,
 })
 
+export const LOCALE_STORAGE_KEY = 'workflow_locale'
+
+/** Локаль из localStorage с проверкой на поддерживаемое значение. */
+export function getStoredLocale(): Locale {
+  const stored = localStorage.getItem(LOCALE_STORAGE_KEY) as Locale | null
+  return SUPPORTED_LOCALES.some((item) => item.value === stored) ? (stored as Locale) : 'ru'
+}
+
 const loaded = new Set<Locale>(['ru'])
 
 /** Догружает файл переводов по требованию — отдельным чанком. */

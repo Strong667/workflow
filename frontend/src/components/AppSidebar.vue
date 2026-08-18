@@ -33,6 +33,13 @@ const systemNav: NavItem[] = [
 
 const visibleMainNav = computed(() => mainNav.filter((item) => !item.roles || auth.can(...item.roles)))
 
+/** На мобильном сайдбар перекрывает контент — после перехода закрываем его. */
+function closeOnMobile(): void {
+  if (window.innerWidth < 768 && !ui.sidebarCollapsed) {
+    ui.toggleSidebar()
+  }
+}
+
 const activeName = computed(() => {
   const name = String(route.name ?? '')
   return name.split('.')[0]
@@ -56,6 +63,7 @@ const activeName = computed(() => {
         :to="{ name: item.name }"
         class="sidebar__link"
         :class="{ 'sidebar__link--active': activeName === item.name }"
+        @click="closeOnMobile"
       >
         <el-icon class="sidebar__icon"><component :is="item.icon" /></el-icon>
         <span v-if="!ui.sidebarCollapsed">{{ t(item.labelKey) }}</span>
@@ -68,6 +76,7 @@ const activeName = computed(() => {
         :to="{ name: item.name }"
         class="sidebar__link"
         :class="{ 'sidebar__link--active': activeName === item.name }"
+        @click="closeOnMobile"
       >
         <el-icon class="sidebar__icon"><component :is="item.icon" /></el-icon>
         <span v-if="!ui.sidebarCollapsed">{{ t(item.labelKey) }}</span>

@@ -13,9 +13,11 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Имя алиаса намеренно отличается от jwt.auth: этот алиас занимает
+        // сам пакет tymon/jwt-auth, и его middleware перекрыл бы наш.
         $middleware->alias([
-            'jwt.auth' => \App\Http\Middleware\JwtAuthenticate::class,
-            'role'     => \App\Http\Middleware\EnsureUserHasRole::class,
+            'jwt.guard' => \App\Http\Middleware\JwtAuthenticate::class,
+            'role'      => \App\Http\Middleware\EnsureUserHasRole::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

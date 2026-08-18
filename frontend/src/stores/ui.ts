@@ -1,10 +1,9 @@
 import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
-import { i18n, setLocale } from '@/locales'
+import { getStoredLocale, LOCALE_STORAGE_KEY, setLocale } from '@/locales'
 import type { Locale, Theme } from '@/types'
 
 const THEME_KEY = 'workflow_theme'
-const LOCALE_KEY = 'workflow_locale'
 const SIDEBAR_KEY = 'workflow_sidebar'
 
 function preferredTheme(): Theme {
@@ -13,10 +12,17 @@ function preferredTheme(): Theme {
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
 }
 
+/** На узких экранах сайдбар — оверлей, поэтому по умолчанию он свёрнут. */
+function preferredSidebarState(): boolean {
+  const stored = localStorage.getItem(SIDEBAR_KEY)
+  if (stored !== null) return stored === '1'
+  return window.innerWidth < 768
+}
+
 export const useUiStore = defineStore('ui', () => {
   const theme = ref<Theme>(preferredTheme())
-  const locale = ref<Locale>((localStorage.getItem(LOCALE_KEY) as Locale | null) ?? 'ru')
-  const sidebarCollapsed = ref(localStorage.getItem(SIDEBAR_KEY) === '1')
+  const locale = ref<Locale>(getStoredLocale())
+  const sidebarCollapsed = ref(preferredSidebarState())
 
   function applyTheme(next: Theme): void {
     theme.value = next
@@ -31,7 +37,7 @@ export const useUiStore = defineStore('ui', () => {
 
   async function applyLocale(next: Locale): Promise<void> {
     locale.value = next
-    localStorage.setItem(LOCALE_KEY, next)
+    localStorage.setItem(LOCALE_STORAGE_KEY, next)
     await setLocale(next)
     document.documentElement.lang = next
   }
@@ -43,9 +49,10 @@ export const useUiStore = defineStore('ui', () => {
   watch(sidebarCollapsed, (value) => localStorage.setItem(SIDEBAR_KEY, value ? '1' : '0'))
 
   // Первичная синхронизация DOM с сохранёнными настройками.
+  // Сообщения для не-русских локалей грузятся отдельным чанком, поэтому через setLocale.
   applyTheme(theme.value)
   document.documentElement.lang = locale.value
-  i18n.global.locale.value = locale.value
+  void setLocale(locale.value)
 
   return { theme, locale, sidebarCollapsed, applyTheme, toggleTheme, applyLocale, toggleSidebar }
 })
