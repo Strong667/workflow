@@ -21,6 +21,7 @@ const messages: MessageSchema = {
     created: 'Record created',
     deleted: 'Record deleted',
     error: 'Error',
+    requiredField: 'This field is required',
     yes: 'Yes',
     no: 'No',
     from: 'from',

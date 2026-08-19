@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
+import type { MenuItem } from 'primevue/menuitem'
 import { SUPPORTED_LOCALES } from '@/locales'
 import { useAuthStore } from '@/stores/auth'
 import { useUiStore } from '@/stores/ui'
@@ -13,63 +14,65 @@ const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
 
+const menu = ref()
 const pageTitle = computed(() => (route.meta.titleKey ? t(route.meta.titleKey as string) : ''))
 
-function onCommand(command: string): void {
-  if (command === 'logout') {
-    void auth.logout()
-    return
-  }
-  void router.push({ name: command })
-}
+const userMenu = computed<MenuItem[]>(() => [
+  { label: t('nav.profile'), icon: 'pi pi-user', command: () => router.push({ name: 'profile' }) },
+  { label: t('nav.settings'), icon: 'pi pi-cog', command: () => router.push({ name: 'settings' }) },
+  { separator: true },
+  { label: t('nav.logout'), icon: 'pi pi-sign-out', command: () => auth.logout() },
+])
 </script>
 
 <template>
   <header class="header">
     <div class="header__left">
-      <el-button text circle :title="t('settings.sidebar')" @click="ui.toggleSidebar()">
-        <el-icon :size="18"><Expand v-if="ui.sidebarCollapsed" /><Fold v-else /></el-icon>
-      </el-button>
+      <Button
+        :icon="ui.sidebarCollapsed ? 'pi pi-bars' : 'pi pi-align-left'"
+        severity="secondary"
+        text
+        rounded
+        :aria-label="t('settings.sidebar')"
+        @click="ui.toggleSidebar()"
+      />
       <h2 class="header__title">{{ pageTitle }}</h2>
     </div>
 
     <div class="header__right">
-      <el-select
+      <Select
         :model-value="ui.locale"
+        :options="SUPPORTED_LOCALES"
+        option-label="label"
+        option-value="value"
         size="small"
         class="header__locale"
         @update:model-value="(value: Locale) => ui.applyLocale(value)"
-      >
-        <el-option v-for="item in SUPPORTED_LOCALES" :key="item.value" :label="item.label" :value="item.value" />
-      </el-select>
+      />
 
-      <el-button text circle :title="t('settings.theme')" @click="ui.toggleTheme()">
-        <el-icon :size="18"><Moon v-if="ui.theme === 'light'" /><Sunny v-else /></el-icon>
-      </el-button>
+      <Button
+        :icon="ui.theme === 'light' ? 'pi pi-moon' : 'pi pi-sun'"
+        severity="secondary"
+        text
+        rounded
+        :aria-label="t('settings.theme')"
+        @click="ui.toggleTheme()"
+      />
 
-      <el-dropdown trigger="click" @command="onCommand">
-        <div class="header__user">
-          <el-avatar :size="32" :src="auth.user?.avatar ?? undefined">{{ auth.initials }}</el-avatar>
-          <div class="header__user-info">
-            <span class="header__user-name">{{ auth.user?.name }}</span>
-            <span class="header__user-role">{{ auth.role ? t(`roles.${auth.role}`) : '' }}</span>
-          </div>
-          <el-icon class="wf-muted"><ArrowDown /></el-icon>
-        </div>
-        <template #dropdown>
-          <el-dropdown-menu>
-            <el-dropdown-item command="profile">
-              <el-icon><User /></el-icon>{{ t('nav.profile') }}
-            </el-dropdown-item>
-            <el-dropdown-item command="settings">
-              <el-icon><Setting /></el-icon>{{ t('nav.settings') }}
-            </el-dropdown-item>
-            <el-dropdown-item command="logout" divided>
-              <el-icon><SwitchButton /></el-icon>{{ t('nav.logout') }}
-            </el-dropdown-item>
-          </el-dropdown-menu>
-        </template>
-      </el-dropdown>
+      <button class="header__user" type="button" @click="menu.toggle($event)">
+        <Avatar
+          :image="auth.user?.avatar ?? undefined"
+          :label="auth.user?.avatar ? undefined : auth.initials"
+          shape="circle"
+          size="normal"
+        />
+        <span class="header__user-info">
+          <span class="header__user-name">{{ auth.user?.name }}</span>
+          <span class="header__user-role">{{ auth.role ? t(`roles.${auth.role}`) : '' }}</span>
+        </span>
+        <i class="pi pi-angle-down wf-muted" />
+      </button>
+      <Menu ref="menu" :model="userMenu" :popup="true" />
     </div>
   </header>
 </template>
@@ -112,7 +115,7 @@ function onCommand(command: string): void {
 }
 
 .header__locale {
-  width: 112px;
+  width: 130px;
 }
 
 .header__user {
@@ -121,11 +124,14 @@ function onCommand(command: string): void {
   gap: 9px;
   cursor: pointer;
   padding: 4px 8px;
+  border: none;
   border-radius: 10px;
-  outline: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
 
   &:hover {
-    background: var(--el-fill-color-light);
+    background: var(--p-content-hover-background);
   }
 }
 
@@ -133,6 +139,7 @@ function onCommand(command: string): void {
   display: flex;
   flex-direction: column;
   line-height: 1.15;
+  text-align: left;
 }
 
 .header__user-name {

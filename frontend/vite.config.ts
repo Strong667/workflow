@@ -36,7 +36,9 @@ export default defineConfig(({ mode }) => {
         output: {
           manualChunks(id: string) {
             if (!id.includes('node_modules')) return undefined
-            if (id.includes('element-plus')) return 'element'
+            if (id.includes('chart.js') || id.includes('@kurkle')) return 'charts'
+            // PrimeVue не сводим в один чанк: тяжёлые компоненты подключены
+            // локально и должны уезжать в чанки своих страниц.
             if (id.includes('vue-i18n') || id.includes('@intlify')) return 'i18n'
             if (id.includes('vue-router') || id.includes('pinia') || id.includes('/@vue/') || id.includes('/vue/')) {
               return 'vue'
@@ -45,8 +47,7 @@ export default defineConfig(({ mode }) => {
           },
         },
       },
-      // Element Plus намеренно вынесен в один долгоживущий вендорный чанк.
-      chunkSizeWarningLimit: 1100,
+      chunkSizeWarningLimit: 700,
     },
   }
 })

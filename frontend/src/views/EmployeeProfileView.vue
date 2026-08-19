@@ -2,55 +2,69 @@
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import Column from 'primevue/column'
+import DataTable from 'primevue/datatable'
+import { useConfirm } from 'primevue/useconfirm'
+import { useToast } from 'primevue/usetoast'
 import EmptyState from '@/components/EmptyState.vue'
 import { apiMessage } from '@/api/client'
 import { formatDate, useTaskMeta } from '@/composables/useTaskMeta'
 import { useAuthStore } from '@/stores/auth'
 import { useEmployeesStore } from '@/stores/employees'
+import type { Task } from '@/types'
 
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
+const confirm = useConfirm()
+const toast = useToast()
 const auth = useAuthStore()
 const employees = useEmployeesStore()
-const { statusLabel, statusType, priorityLabel, priorityType } = useTaskMeta()
+const { statusLabel, statusSeverity, priorityLabel, prioritySeverity } = useTaskMeta()
 
 const loading = ref(true)
 const employee = computed(() => employees.current)
 const canManage = auth.can('admin', 'manager')
 
+const details = computed(() => [
+  { label: t('employees.email'), value: employee.value?.email ?? '—' },
+  { label: t('employees.phone'), value: employee.value?.phone ?? '—' },
+  { label: t('employees.hireDate'), value: formatDate(employee.value?.hire_date) },
+  { label: t('employees.department'), value: employee.value?.department?.name ?? t('employees.noDepartment') },
+])
+
 onMounted(async () => {
   try {
     await employees.fetchOne(Number(route.params.id))
   } catch (error) {
-    ElMessage.error(apiMessage(error, t('employees.notFound')))
+    toast.add({ severity: 'error', summary: apiMessage(error, t('employees.notFound')), life: 4000 })
     await router.push({ name: 'employees' })
   } finally {
     loading.value = false
   }
 })
 
-async function remove(): Promise<void> {
+function remove(): void {
   if (!employee.value) return
 
-  try {
-    await ElMessageBox.confirm(
-      t('employees.deleteConfirm', { name: employee.value.full_name }),
-      t('common.confirm'),
-      { type: 'warning', confirmButtonText: t('common.delete'), cancelButtonText: t('common.cancel') },
-    )
-  } catch {
-    return
-  }
-
-  try {
-    await employees.remove(employee.value.id)
-    ElMessage.success(t('common.deleted'))
-    await router.push({ name: 'employees' })
-  } catch (error) {
-    ElMessage.error(apiMessage(error))
-  }
+  confirm.require({
+    header: t('common.confirm'),
+    message: t('employees.deleteConfirm', { name: employee.value.full_name }),
+    icon: 'pi pi-exclamation-triangle',
+    acceptLabel: t('common.delete'),
+    rejectLabel: t('common.cancel'),
+    acceptProps: { severity: 'danger' },
+    rejectProps: { severity: 'secondary', outlined: true },
+    accept: async () => {
+      try {
+        await employees.remove(employee.value!.id)
+        toast.add({ severity: 'success', summary: t('common.deleted'), life: 3000 })
+        await router.push({ name: 'employees' })
+      } catch (error) {
+        toast.add({ severity: 'error', summary: apiMessage(error), life: 4000 })
+      }
+    },
+  })
 }
 </script>
 
@@ -62,71 +76,73 @@ async function remove(): Promise<void> {
         <p class="wf-page__subtitle">{{ employee?.email }}</p>
       </div>
       <div class="wf-toolbar">
-        <el-button icon="ArrowLeft" @click="router.push({ name: 'employees' })">{{ t('common.back') }}</el-button>
-        <el-button
+        <Button
+          icon="pi pi-arrow-left"
+          :label="t('common.back')"
+          severity="secondary"
+          outlined
+          @click="router.push({ name: 'employees' })"
+        />
+        <Button
           v-if="canManage"
-          icon="Edit"
+          icon="pi pi-pencil"
+          :label="t('common.edit')"
+          severity="secondary"
+          outlined
           @click="router.push({ name: 'employees.edit', params: { id: route.params.id } })"
-        >
-          {{ t('common.edit') }}
-        </el-button>
-        <el-button v-if="canManage" type="danger" plain icon="Delete" @click="remove">
-          {{ t('common.delete') }}
-        </el-button>
+        />
+        <Button v-if="canManage" icon="pi pi-trash" :label="t('common.delete')" severity="danger" outlined @click="remove" />
       </div>
     </div>
 
-    <el-skeleton v-if="loading" :rows="8" animated class="wf-card skeleton-card" />
+    <div v-if="loading" class="wf-card loading"><ProgressSpinner style="width: 42px; height: 42px" /></div>
 
     <div v-else-if="employee" class="profile">
       <section class="wf-card profile__card">
-        <el-avatar :size="76" :src="employee.avatar ?? undefined" class="profile__avatar">
-          {{ employee.first_name[0] }}{{ employee.last_name[0] }}
-        </el-avatar>
+        <Avatar
+          :image="employee.avatar ?? undefined"
+          :label="employee.avatar ? undefined : `${employee.first_name[0]}${employee.last_name[0]}`"
+          shape="circle"
+          size="xlarge"
+        />
         <h2 class="profile__name">{{ employee.full_name }}</h2>
         <p class="wf-muted profile__position">{{ employee.position ?? '—' }}</p>
-        <el-tag v-if="employee.department" effect="plain" round>{{ employee.department.name }}</el-tag>
+        <Tag v-if="employee.department" :value="employee.department.name" severity="secondary" rounded />
 
-        <el-descriptions :column="1" border class="profile__details">
-          <el-descriptions-item :label="t('employees.email')">{{ employee.email }}</el-descriptions-item>
-          <el-descriptions-item :label="t('employees.phone')">{{ employee.phone ?? '—' }}</el-descriptions-item>
-          <el-descriptions-item :label="t('employees.hireDate')">{{ formatDate(employee.hire_date) }}</el-descriptions-item>
-          <el-descriptions-item :label="t('employees.department')">
-            {{ employee.department?.name ?? t('employees.noDepartment') }}
-          </el-descriptions-item>
-        </el-descriptions>
+        <ul class="details">
+          <li v-for="row in details" :key="row.label" class="details__row">
+            <span class="wf-muted details__label">{{ row.label }}</span>
+            <span class="details__value">{{ row.value }}</span>
+          </li>
+        </ul>
       </section>
 
       <section class="wf-card profile__tasks">
         <h3 class="profile__tasks-title">
           {{ t('employees.tasksOf') }}
-          <el-tag size="small" effect="plain" round>{{ employee.tasks?.length ?? 0 }}</el-tag>
+          <Badge :value="employee.tasks?.length ?? 0" severity="secondary" />
         </h3>
 
-        <el-table v-if="employee.tasks?.length" :data="employee.tasks" style="width: 100%">
-          <el-table-column prop="title" :label="t('tasks.titleField')" min-width="220" />
-          <el-table-column :label="t('tasks.status')" width="140">
-            <template #default="{ row }">
-              <el-tag size="small" :type="statusType(row.status)" effect="light" round>
-                {{ statusLabel(row.status) }}
-              </el-tag>
+        <DataTable v-if="employee.tasks?.length" :value="employee.tasks" data-key="id">
+          <Column field="title" :header="t('tasks.titleField')" style="min-width: 220px" />
+          <Column :header="t('tasks.status')" style="width: 150px">
+            <template #body="{ data }: { data: Task }">
+              <Tag :value="statusLabel(data.status)" :severity="statusSeverity(data.status)" rounded />
             </template>
-          </el-table-column>
-          <el-table-column :label="t('tasks.priority')" width="130">
-            <template #default="{ row }">
-              <el-tag size="small" :type="priorityType(row.priority)" effect="plain" round>
-                {{ priorityLabel(row.priority) }}
-              </el-tag>
+          </Column>
+          <Column :header="t('tasks.priority')" style="width: 140px">
+            <template #body="{ data }: { data: Task }">
+              <Tag :value="priorityLabel(data.priority)" :severity="prioritySeverity(data.priority)" rounded />
             </template>
-          </el-table-column>
-          <el-table-column :label="t('tasks.deadline')" width="130">
-            <template #default="{ row }">
-              <span :class="{ overdue: row.is_overdue }">{{ formatDate(row.deadline) }}</span>
+          </Column>
+          <Column :header="t('tasks.deadline')" style="width: 130px">
+            <template #body="{ data }: { data: Task }">
+              <span :class="{ overdue: data.is_overdue }">{{ formatDate(data.deadline) }}</span>
             </template>
-          </el-table-column>
-        </el-table>
+          </Column>
+        </DataTable>
 
-        <EmptyState v-else :text="t('tasks.empty')" icon="Files" />
+        <EmptyState v-else :text="t('tasks.empty')" icon="pi pi-list-check" />
       </section>
     </div>
   </div>
@@ -149,10 +165,6 @@ async function remove(): Promise<void> {
   gap: 8px;
 }
 
-.profile__avatar {
-  font-size: 24px;
-}
-
 .profile__name {
   margin: 6px 0 0;
   font-size: 18px;
@@ -164,10 +176,31 @@ async function remove(): Promise<void> {
   font-size: 13px;
 }
 
-.profile__details {
+.details {
   width: 100%;
-  margin-top: 18px;
+  margin: 18px 0 0;
+  padding: 0;
+  list-style: none;
   text-align: left;
+}
+
+.details__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--wf-border);
+  font-size: 13px;
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.details__value {
+  font-weight: 550;
+  text-align: right;
+  word-break: break-word;
 }
 
 .profile__tasks {
@@ -183,12 +216,14 @@ async function remove(): Promise<void> {
   gap: 8px;
 }
 
-.skeleton-card {
-  padding: 24px;
+.loading {
+  display: grid;
+  place-items: center;
+  min-height: 280px;
 }
 
 .overdue {
-  color: var(--el-color-danger);
+  color: var(--p-red-500);
 }
 
 @media (max-width: 900px) {

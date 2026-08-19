@@ -19,19 +19,21 @@ const route = useRoute()
 const { t } = useI18n()
 
 const mainNav: NavItem[] = [
-  { name: 'dashboard', icon: 'Odometer', labelKey: 'nav.dashboard' },
-  { name: 'employees', icon: 'UserFilled', labelKey: 'nav.employees' },
-  { name: 'tasks', icon: 'Files', labelKey: 'nav.tasks' },
-  { name: 'departments', icon: 'OfficeBuilding', labelKey: 'nav.departments' },
-  { name: 'activity', icon: 'Clock', labelKey: 'nav.activity', roles: ['admin', 'manager'] },
+  { name: 'dashboard', icon: 'pi pi-chart-pie', labelKey: 'nav.dashboard' },
+  { name: 'employees', icon: 'pi pi-users', labelKey: 'nav.employees' },
+  { name: 'tasks', icon: 'pi pi-list-check', labelKey: 'nav.tasks' },
+  { name: 'departments', icon: 'pi pi-building', labelKey: 'nav.departments' },
+  { name: 'activity', icon: 'pi pi-history', labelKey: 'nav.activity', roles: ['admin', 'manager'] },
 ]
 
 const systemNav: NavItem[] = [
-  { name: 'settings', icon: 'Setting', labelKey: 'nav.settings' },
-  { name: 'profile', icon: 'User', labelKey: 'nav.profile' },
+  { name: 'settings', icon: 'pi pi-cog', labelKey: 'nav.settings' },
+  { name: 'profile', icon: 'pi pi-user', labelKey: 'nav.profile' },
 ]
 
 const visibleMainNav = computed(() => mainNav.filter((item) => !item.roles || auth.can(...item.roles)))
+
+const activeName = computed(() => String(route.name ?? '').split('.')[0])
 
 /** На мобильном сайдбар перекрывает контент — после перехода закрываем его. */
 function closeOnMobile(): void {
@@ -39,20 +41,13 @@ function closeOnMobile(): void {
     ui.toggleSidebar()
   }
 }
-
-const activeName = computed(() => {
-  const name = String(route.name ?? '')
-  return name.split('.')[0]
-})
 </script>
 
 <template>
   <aside class="sidebar">
     <div class="sidebar__brand">
       <div class="sidebar__logo">WF</div>
-      <transition name="fade">
-        <span v-if="!ui.sidebarCollapsed" class="sidebar__title">WorkFlow</span>
-      </transition>
+      <span v-if="!ui.sidebarCollapsed" class="sidebar__title">WorkFlow</span>
     </div>
 
     <nav class="sidebar__nav">
@@ -60,12 +55,13 @@ const activeName = computed(() => {
       <router-link
         v-for="item in visibleMainNav"
         :key="item.name"
+        v-tooltip.right="ui.sidebarCollapsed ? t(item.labelKey) : undefined"
         :to="{ name: item.name }"
         class="sidebar__link"
         :class="{ 'sidebar__link--active': activeName === item.name }"
         @click="closeOnMobile"
       >
-        <el-icon class="sidebar__icon"><component :is="item.icon" /></el-icon>
+        <i :class="item.icon" class="sidebar__icon" />
         <span v-if="!ui.sidebarCollapsed">{{ t(item.labelKey) }}</span>
       </router-link>
 
@@ -73,21 +69,26 @@ const activeName = computed(() => {
       <router-link
         v-for="item in systemNav"
         :key="item.name"
+        v-tooltip.right="ui.sidebarCollapsed ? t(item.labelKey) : undefined"
         :to="{ name: item.name }"
         class="sidebar__link"
         :class="{ 'sidebar__link--active': activeName === item.name }"
         @click="closeOnMobile"
       >
-        <el-icon class="sidebar__icon"><component :is="item.icon" /></el-icon>
+        <i :class="item.icon" class="sidebar__icon" />
         <span v-if="!ui.sidebarCollapsed">{{ t(item.labelKey) }}</span>
       </router-link>
     </nav>
 
     <div class="sidebar__footer">
-      <el-button text class="sidebar__logout" @click="auth.logout()">
-        <el-icon><SwitchButton /></el-icon>
-        <span v-if="!ui.sidebarCollapsed">{{ t('nav.logout') }}</span>
-      </el-button>
+      <Button
+        :label="ui.sidebarCollapsed ? undefined : t('nav.logout')"
+        icon="pi pi-sign-out"
+        severity="secondary"
+        text
+        class="sidebar__logout"
+        @click="auth.logout()"
+      />
     </div>
   </aside>
 </template>
@@ -120,8 +121,8 @@ const activeName = computed(() => {
   border-radius: 9px;
   display: grid;
   place-items: center;
-  background: var(--el-color-primary);
-  color: #fff;
+  background: var(--p-primary-color);
+  color: var(--p-primary-contrast-color);
   font-weight: 700;
   font-size: 13px;
   flex: 0 0 auto;
@@ -157,28 +158,26 @@ const activeName = computed(() => {
   padding: 9px 11px;
   border-radius: 9px;
   font-size: 14px;
-  color: var(--el-text-color-regular);
+  color: var(--p-text-color);
   white-space: nowrap;
   transition: background 0.15s ease, color 0.15s ease;
 
   &:hover {
-    background: var(--el-fill-color-light);
+    background: var(--p-content-hover-background);
   }
 
   &--active {
-    background: var(--el-color-primary-light-9);
-    color: var(--el-color-primary);
+    background: color-mix(in srgb, var(--p-primary-color) 12%, transparent);
+    color: var(--p-primary-color);
     font-weight: 600;
   }
 }
 
-html.dark .sidebar__link--active {
-  background: rgba(79, 70, 229, 0.18);
-}
-
 .sidebar__icon {
-  font-size: 17px;
+  font-size: 16px;
   flex: 0 0 auto;
+  width: 18px;
+  text-align: center;
 }
 
 .sidebar__footer {
@@ -189,7 +188,5 @@ html.dark .sidebar__link--active {
 .sidebar__logout {
   width: 100%;
   justify-content: flex-start;
-  gap: 11px;
-  padding: 9px 11px;
 }
 </style>

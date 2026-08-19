@@ -1,10 +1,10 @@
 <script setup lang="ts">
-withDefaults(defineProps<{ text: string; icon?: string }>(), { icon: 'Box' })
+withDefaults(defineProps<{ text: string; icon?: string }>(), { icon: 'pi pi-inbox' })
 </script>
 
 <template>
   <div class="empty">
-    <el-icon :size="30" class="empty__icon"><component :is="icon" /></el-icon>
+    <i :class="icon" class="empty__icon" />
     <p class="empty__text">{{ text }}</p>
     <slot />
   </div>
@@ -22,7 +22,8 @@ withDefaults(defineProps<{ text: string; icon?: string }>(), { icon: 'Box' })
 }
 
 .empty__icon {
-  opacity: 0.5;
+  font-size: 26px;
+  opacity: 0.55;
 }
 
 .empty__text {

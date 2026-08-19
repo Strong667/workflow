@@ -3,7 +3,8 @@ import { onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { useDebounceFn } from '@vueuse/core'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { useConfirm } from 'primevue/useconfirm'
+import { useToast } from 'primevue/usetoast'
 import KanbanColumn from '@/components/KanbanColumn.vue'
 import { apiMessage } from '@/api/client'
 import { useTaskMeta } from '@/composables/useTaskMeta'
@@ -13,12 +14,19 @@ import type { Task, TaskPriority, TaskStatus } from '@/types'
 
 const { t } = useI18n()
 const router = useRouter()
+const confirm = useConfirm()
+const toast = useToast()
 const tasks = useTasksStore()
 const departments = useDepartmentsStore()
 const { statusLabel, statusColor } = useTaskMeta()
 
 const search = ref(tasks.filters.search ?? '')
 const dragged = ref<{ task: Task; from: TaskStatus } | null>(null)
+
+const priorityOptions = (['low', 'medium', 'high'] as TaskPriority[]).map((value) => ({
+  value,
+  label: t(`tasks.priorities.${value}`),
+}))
 
 const debouncedSearch = useDebounceFn((value: string) => {
   tasks.filters.search = value
@@ -56,33 +64,32 @@ async function onDrop(payload: { status: TaskStatus; index: number }): Promise<v
   try {
     await tasks.move(current.task.id, current.from, payload.status, payload.index)
     if (current.from !== payload.status) {
-      ElMessage.success(t('tasks.moved'))
+      toast.add({ severity: 'success', summary: t('tasks.moved'), life: 2500 })
     }
   } catch (error) {
-    ElMessage.error(apiMessage(error))
+    toast.add({ severity: 'error', summary: apiMessage(error), life: 4000 })
   }
 }
 
-async function remove(task: Task): Promise<void> {
-  try {
-    await ElMessageBox.confirm(t('tasks.deleteConfirm', { title: task.title }), t('common.confirm'), {
-      type: 'warning',
-      confirmButtonText: t('common.delete'),
-      cancelButtonText: t('common.cancel'),
-    })
-  } catch {
-    return
-  }
-
-  try {
-    await tasks.remove(task.id)
-    ElMessage.success(t('common.deleted'))
-  } catch (error) {
-    ElMessage.error(apiMessage(error))
-  }
+function remove(task: Task): void {
+  confirm.require({
+    header: t('common.confirm'),
+    message: t('tasks.deleteConfirm', { title: task.title }),
+    icon: 'pi pi-exclamation-triangle',
+    acceptLabel: t('common.delete'),
+    rejectLabel: t('common.cancel'),
+    acceptProps: { severity: 'danger' },
+    rejectProps: { severity: 'secondary', outlined: true },
+    accept: async () => {
+      try {
+        await tasks.remove(task.id)
+        toast.add({ severity: 'success', summary: t('common.deleted'), life: 3000 })
+      } catch (error) {
+        toast.add({ severity: 'error', summary: apiMessage(error), life: 4000 })
+      }
+    },
+  })
 }
-
-const priorities: TaskPriority[] = ['low', 'medium', 'high']
 </script>
 
 <template>
@@ -92,40 +99,41 @@ const priorities: TaskPriority[] = ['low', 'medium', 'high']
         <h1 class="wf-page__title">{{ t('tasks.title') }}</h1>
         <p class="wf-page__subtitle">{{ t('tasks.dragHint') }} · {{ t('common.total') }}: {{ tasks.totalCount }}</p>
       </div>
-      <el-button type="primary" icon="Plus" @click="router.push({ name: 'tasks.create' })">
-        {{ t('tasks.create') }}
-      </el-button>
+      <Button icon="pi pi-plus" :label="t('tasks.create')" @click="router.push({ name: 'tasks.create' })" />
     </div>
 
     <div class="wf-card filters">
-      <el-input v-model="search" :placeholder="t('tasks.searchPlaceholder')" clearable class="filters__search">
-        <template #prefix><el-icon><Search /></el-icon></template>
-      </el-input>
+      <IconField class="filters__search">
+        <InputIcon class="pi pi-search" />
+        <InputText v-model="search" :placeholder="t('tasks.searchPlaceholder')" fluid />
+      </IconField>
 
-      <el-select
+      <Select
         v-model="tasks.filters.priority"
+        :options="priorityOptions"
+        option-label="label"
+        option-value="value"
         :placeholder="t('tasks.priority')"
-        clearable
+        show-clear
         class="filters__select"
         @change="applyFilter"
-      >
-        <el-option v-for="item in priorities" :key="item" :label="t(`tasks.priorities.${item}`)" :value="item" />
-      </el-select>
+      />
 
-      <el-select
+      <Select
         v-model="tasks.filters.department_id"
+        :options="departments.options"
+        option-label="name"
+        option-value="id"
         :placeholder="t('employees.department')"
-        clearable
+        show-clear
         class="filters__select"
         @change="applyFilter"
-      >
-        <el-option v-for="item in departments.options" :key="item.id" :label="item.name" :value="item.id" />
-      </el-select>
+      />
 
-      <el-button text @click="resetFilters">{{ t('common.reset') }}</el-button>
+      <Button :label="t('common.reset')" severity="secondary" text @click="resetFilters" />
     </div>
 
-    <div v-loading="tasks.loading" class="board">
+    <div class="board" :class="{ 'board--loading': tasks.loading }">
       <KanbanColumn
         v-for="status in STATUSES"
         :key="status"
@@ -159,7 +167,7 @@ const priorities: TaskPriority[] = ['low', 'medium', 'high']
 }
 
 .filters__select {
-  width: 180px;
+  width: 190px;
 }
 
 .board {
@@ -169,5 +177,11 @@ const priorities: TaskPriority[] = ['low', 'medium', 'high']
   overflow-x: auto;
   padding-bottom: 8px;
   min-height: 400px;
+  transition: opacity 0.15s ease;
+
+  &--loading {
+    opacity: 0.55;
+    pointer-events: none;
+  }
 }
 </style>

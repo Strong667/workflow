@@ -5,7 +5,7 @@ CRM-система для управления сотрудниками, зад�
 
 ## Стек
 
-**Frontend:** Vue 3 (Composition API), TypeScript, Vite, Pinia, Vue Router, Axios, Element Plus, Vue I18n, VueUse
+**Frontend:** Vue 3 (Composition API), TypeScript, Vite, Pinia, Vue Router, Axios, PrimeVue 5 + PrimeIcons, Chart.js, Vue I18n, VueUse
 **Backend:** Laravel 12, PHP 8.4, tymon/jwt-auth, MySQL 8 (в dev-режиме — SQLite)
 
 ## Структура
@@ -84,6 +84,18 @@ FLUSH PRIVILEGES;
 | `tasks` | id, title, description, employee_id, status, priority, deadline, position |
 | `activity_logs` | id, user_id, action, entity, entity_id, description, created_at |
 
+## UI-слой
+
+Интерфейс собран на **PrimeVue 5** с пресетом Aura и кастомным primary-цветом (индиго). Тёмная тема включается классом `.dark` на `<html>` — его ставит стор `ui`, PrimeVue настроен на `darkModeSelector: '.dark'`.
+
+Глобально зарегистрированы только лёгкие компоненты (`src/plugins/components.ts`). Тяжёлые — `DataTable`, `Chart`, `DatePicker`, `Dialog`, `Paginator`, `Password`, `Timeline` — импортируются локально в своих экранах, поэтому попадают в чанки соответствующих страниц: экран логина не тянет код таблиц и графиков.
+
+Подписи внутри компонентов PrimeVue (календарь, индикатор пароля, пустые списки) переведены в `src/plugins/prime-locales.ts` и переключаются вместе с языком интерфейса.
+
+### Лицензия PrimeVue
+
+PrimeVue 5 распространяется под лицензией PrimeUI: бесплатная Community-лицензия покрывает частных лиц, студентов, НКО и компании с выручкой до $1 млн и штатом до 10 человек, но **требует регистрации ключа** — без него в консоль пишется предупреждение `PrimeUI license is not configured`. Если ключ не нужен, подойдёт PrimeVue 4.5.5 под MIT: все используемые компоненты в ней есть.
+
 ## REST API
 
 Все защищённые маршруты требуют заголовок `Authorization: Bearer <token>`.
@@ -125,7 +137,8 @@ Login · Dashboard · Сотрудники · Создание сотрудни�
 - Lazy Loading маршрутов и файлов локализации
 - Code Splitting: отдельные вендорные чанки (`vue`, `element`, `i18n`, `api`)
 - Skeleton-состояния таблиц и карточек
-- Тёмная тема и три языка (ru / en / kk) с сохранением на сервере
+- Тёмная тема (пресет PrimeVue Aura с фирменным индиго) и три языка (ru / en / kk) с сохранением на сервере
+- Графики дашборда на Chart.js через компонент PrimeVue Chart
 
 ## Команды
 

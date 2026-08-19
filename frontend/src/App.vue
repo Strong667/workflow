@@ -1,19 +1,25 @@
 <script setup lang="ts">
-import { computed, watch } from 'vue'
+import { watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
-import elementEn from 'element-plus/es/locale/lang/en'
-import elementKk from 'element-plus/es/locale/lang/kk'
-import elementRu from 'element-plus/es/locale/lang/ru'
+import { usePrimeVue } from 'primevue/config'
+import { PRIME_LOCALES } from '@/plugins/prime-locales'
 import { useUiStore } from '@/stores/ui'
-import type { Locale } from '@/types'
 
 const ui = useUiStore()
 const route = useRoute()
 const { t } = useI18n()
+const primevue = usePrimeVue()
 
-const elementLocales = { ru: elementRu, en: elementEn, kk: elementKk }
-const elementLocale = computed(() => elementLocales[ui.locale as Locale] ?? elementRu)
+// Подписи внутри компонентов PrimeVue переключаются вслед за языком интерфейса.
+watch(
+  () => ui.locale,
+  (locale) => {
+    // Свои подписи кладём поверх дефолтных, чтобы не потерять остальные ключи.
+    Object.assign(primevue.config.locale ?? {}, PRIME_LOCALES[locale])
+  },
+  { immediate: true },
+)
 
 watch(
   () => [route.meta.titleKey, ui.locale],
@@ -26,11 +32,12 @@ watch(
 </script>
 
 <template>
-  <el-config-provider :locale="elementLocale">
-    <router-view v-slot="{ Component }">
-      <transition name="fade" mode="out-in">
-        <component :is="Component" />
-      </transition>
-    </router-view>
-  </el-config-provider>
+  <router-view v-slot="{ Component }">
+    <transition name="fade" mode="out-in">
+      <component :is="Component" />
+    </transition>
+  </router-view>
+
+  <Toast position="top-right" />
+  <ConfirmDialog />
 </template>

@@ -1,29 +1,25 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { ElMessage } from 'element-plus'
-import BarChart from '@/components/BarChart.vue'
+import Chart from 'primevue/chart'
+import Timeline from 'primevue/timeline'
+import { useToast } from 'primevue/usetoast'
 import MeterList from '@/components/MeterList.vue'
 import StatCard from '@/components/StatCard.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import { dashboardApi } from '@/api'
 import { apiMessage } from '@/api/client'
+import { useChartTheme } from '@/composables/useChartTheme'
 import { formatDate, formatDateTime, useTaskMeta } from '@/composables/useTaskMeta'
 import type { DashboardStats, TaskPriority, TaskStatus } from '@/types'
 
 const { t } = useI18n()
-const { statusLabel, statusColor, priorityLabel, priorityColor, priorityType } = useTaskMeta()
+const toast = useToast()
+const tokens = useChartTheme()
+const { statusLabel, statusColor, priorityLabel, priorityColor, prioritySeverity } = useTaskMeta()
 
 const stats = ref<DashboardStats | null>(null)
 const loading = ref(true)
-
-const statusMeters = computed(() =>
-  Object.entries(stats.value?.tasks_by_status ?? {}).map(([status, value]) => ({
-    label: statusLabel(status as TaskStatus),
-    value,
-    color: statusColor(status as TaskStatus),
-  })),
-)
 
 const priorityMeters = computed(() =>
   Object.entries(stats.value?.tasks_by_priority ?? {}).map(([priority, value]) => ({
@@ -33,19 +29,102 @@ const priorityMeters = computed(() =>
   })),
 )
 
-const departmentChart = computed(() =>
-  (stats.value?.employees_by_department ?? []).map((item) => ({ label: item.name, values: [item.total] })),
-)
+const weeklyData = computed(() => ({
+  labels: (stats.value?.tasks_per_week ?? []).map((item) => item.label),
+  datasets: [
+    {
+      label: t('dashboard.created'),
+      data: (stats.value?.tasks_per_week ?? []).map((item) => item.created),
+      backgroundColor: tokens.value.primary,
+      borderRadius: 6,
+      maxBarThickness: 26,
+    },
+    {
+      label: t('dashboard.done'),
+      data: (stats.value?.tasks_per_week ?? []).map((item) => item.done),
+      backgroundColor: tokens.value.success,
+      borderRadius: 6,
+      maxBarThickness: 26,
+    },
+  ],
+}))
 
-const weeklyChart = computed(() =>
-  (stats.value?.tasks_per_week ?? []).map((item) => ({ label: item.label, values: [item.created, item.done] })),
-)
+const statusData = computed(() => {
+  const entries = Object.entries(stats.value?.tasks_by_status ?? {}) as Array<[TaskStatus, number]>
+  return {
+    labels: entries.map(([status]) => statusLabel(status)),
+    datasets: [
+      {
+        data: entries.map(([, value]) => value),
+        backgroundColor: entries.map(([status]) => statusColor(status)),
+        borderWidth: 0,
+      },
+    ],
+  }
+})
+
+const departmentData = computed(() => ({
+  labels: (stats.value?.employees_by_department ?? []).map((item) => item.name),
+  datasets: [
+    {
+      label: t('dashboard.employees'),
+      data: (stats.value?.employees_by_department ?? []).map((item) => item.total),
+      backgroundColor: tokens.value.primary,
+      borderRadius: 6,
+      maxBarThickness: 22,
+    },
+  ],
+}))
+
+const barOptions = computed(() => ({
+  maintainAspectRatio: false,
+  // Анимация Chart.js крутится на requestAnimationFrame: в фоновой вкладке
+  // он не вызывается, и график остаётся пустым до переключения на неё.
+  animation: false as const,
+  plugins: {
+    legend: { labels: { color: tokens.value.muted, usePointStyle: true, boxWidth: 8 } },
+  },
+  scales: {
+    x: { ticks: { color: tokens.value.muted }, grid: { display: false } },
+    y: {
+      beginAtZero: true,
+      ticks: { color: tokens.value.muted, precision: 0 },
+      grid: { color: tokens.value.grid },
+    },
+  },
+}))
+
+const horizontalBarOptions = computed(() => ({
+  ...barOptions.value,
+  indexAxis: 'y' as const,
+  plugins: { legend: { display: false } },
+  scales: {
+    x: {
+      beginAtZero: true,
+      ticks: { color: tokens.value.muted, precision: 0 },
+      grid: { color: tokens.value.grid },
+    },
+    y: { ticks: { color: tokens.value.muted }, grid: { display: false } },
+  },
+}))
+
+const doughnutOptions = computed(() => ({
+  maintainAspectRatio: false,
+  animation: false as const,
+  cutout: '62%',
+  plugins: {
+    legend: {
+      position: 'bottom' as const,
+      labels: { color: tokens.value.muted, usePointStyle: true, boxWidth: 8, padding: 14 },
+    },
+  },
+}))
 
 onMounted(async () => {
   try {
     stats.value = await dashboardApi.stats()
   } catch (error) {
-    ElMessage.error(apiMessage(error))
+    toast.add({ severity: 'error', summary: apiMessage(error), life: 4000 })
   } finally {
     loading.value = false
   }
@@ -59,37 +138,35 @@ onMounted(async () => {
         <h1 class="wf-page__title">{{ t('dashboard.title') }}</h1>
         <p class="wf-page__subtitle">{{ t('dashboard.subtitle') }}</p>
       </div>
-      <el-button type="primary" :icon="'Plus'" @click="$router.push({ name: 'tasks.create' })">
-        {{ t('tasks.create') }}
-      </el-button>
+      <Button icon="pi pi-plus" :label="t('tasks.create')" @click="$router.push({ name: 'tasks.create' })" />
     </div>
 
     <div class="wf-grid stats">
       <StatCard
         :label="t('dashboard.employees')"
         :value="stats?.totals.employees ?? 0"
-        icon="UserFilled"
+        icon="pi pi-users"
         tone="primary"
         :loading="loading"
       />
       <StatCard
         :label="t('dashboard.departments')"
         :value="stats?.totals.departments ?? 0"
-        icon="OfficeBuilding"
+        icon="pi pi-building"
         tone="success"
         :loading="loading"
       />
       <StatCard
         :label="t('dashboard.tasks')"
         :value="stats?.totals.tasks ?? 0"
-        icon="Files"
-        tone="warning"
+        icon="pi pi-list-check"
+        tone="warn"
         :loading="loading"
       />
       <StatCard
         :label="t('dashboard.overdue')"
         :value="stats?.totals.overdue ?? 0"
-        icon="WarningFilled"
+        icon="pi pi-exclamation-triangle"
         tone="danger"
         :loading="loading"
       />
@@ -98,34 +175,29 @@ onMounted(async () => {
     <div class="wf-grid charts">
       <section class="wf-card panel panel--wide">
         <h3 class="panel__title">{{ t('dashboard.weekly') }}</h3>
-        <el-skeleton v-if="loading" :rows="5" animated />
-        <BarChart
-          v-else
-          :data="weeklyChart"
-          :legend="[t('dashboard.created'), t('dashboard.done')]"
-          :height="230"
-        />
+        <Skeleton v-if="loading" height="230px" />
+        <Chart v-else type="bar" :data="weeklyData" :options="barOptions" class="chart" />
       </section>
 
       <section class="wf-card panel">
         <h3 class="panel__title">{{ t('dashboard.tasksByStatus') }}</h3>
-        <el-skeleton v-if="loading" :rows="4" animated />
-        <MeterList v-else :items="statusMeters" />
-
-        <h3 class="panel__title panel__title--spaced">{{ t('dashboard.tasksByPriority') }}</h3>
-        <el-skeleton v-if="loading" :rows="3" animated />
-        <MeterList v-else :items="priorityMeters" />
+        <Skeleton v-if="loading" height="230px" />
+        <Chart v-else type="doughnut" :data="statusData" :options="doughnutOptions" class="chart" />
       </section>
 
       <section class="wf-card panel">
         <h3 class="panel__title">{{ t('dashboard.byDepartment') }}</h3>
-        <el-skeleton v-if="loading" :rows="5" animated />
-        <BarChart v-else :data="departmentChart" :height="220" />
+        <Skeleton v-if="loading" height="230px" />
+        <Chart v-else type="bar" :data="departmentData" :options="horizontalBarOptions" class="chart" />
       </section>
 
       <section class="wf-card panel">
-        <h3 class="panel__title">{{ t('dashboard.recentTasks') }}</h3>
-        <el-skeleton v-if="loading" :rows="5" animated />
+        <h3 class="panel__title">{{ t('dashboard.tasksByPriority') }}</h3>
+        <Skeleton v-if="loading" height="80px" />
+        <MeterList v-else :items="priorityMeters" />
+
+        <h3 class="panel__title panel__title--spaced">{{ t('dashboard.recentTasks') }}</h3>
+        <Skeleton v-if="loading" height="120px" />
         <ul v-else-if="stats?.recent_tasks.length" class="feed">
           <li v-for="task in stats.recent_tasks" :key="task.id" class="feed__item">
             <div class="feed__main">
@@ -134,9 +206,7 @@ onMounted(async () => {
                 {{ task.employee?.full_name ?? t('tasks.unassigned') }} · {{ formatDate(task.deadline) }}
               </span>
             </div>
-            <el-tag size="small" :type="priorityType(task.priority)" effect="light" round>
-              {{ priorityLabel(task.priority) }}
-            </el-tag>
+            <Tag :value="priorityLabel(task.priority)" :severity="prioritySeverity(task.priority)" rounded />
           </li>
         </ul>
         <EmptyState v-else :text="t('common.noData')" />
@@ -144,18 +214,16 @@ onMounted(async () => {
 
       <section class="wf-card panel panel--wide">
         <h3 class="panel__title">{{ t('dashboard.recentActivity') }}</h3>
-        <el-skeleton v-if="loading" :rows="5" animated />
-        <el-timeline v-else-if="stats?.recent_activity.length" class="timeline">
-          <el-timeline-item
-            v-for="log in stats.recent_activity"
-            :key="log.id"
-            :timestamp="formatDateTime(log.created_at)"
-            placement="top"
-          >
-            <span class="feed__title">{{ log.description ?? log.action }}</span>
-            <span class="wf-muted"> — {{ log.user?.name ?? t('activity.system') }}</span>
-          </el-timeline-item>
-        </el-timeline>
+        <Skeleton v-if="loading" height="200px" />
+        <Timeline v-else-if="stats?.recent_activity.length" :value="stats.recent_activity" class="timeline">
+          <template #opposite="{ item }">
+            <span class="wf-muted timeline__date">{{ formatDateTime(item.created_at) }}</span>
+          </template>
+          <template #content="{ item }">
+            <span class="feed__title">{{ item.description ?? item.action }}</span>
+            <span class="wf-muted"> — {{ item.user?.name ?? t('activity.system') }}</span>
+          </template>
+        </Timeline>
         <EmptyState v-else :text="t('activity.empty')" />
       </section>
     </div>
@@ -188,6 +256,10 @@ onMounted(async () => {
 
 .panel__title--spaced {
   margin-top: 24px;
+}
+
+.chart {
+  height: 230px;
 }
 
 .feed {
@@ -224,9 +296,13 @@ onMounted(async () => {
   font-size: 11.5px;
 }
 
-.timeline {
-  padding-left: 4px;
-  margin-bottom: -20px;
+.timeline__date {
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+
+:deep(.p-timeline-event-opposite) {
+  flex: 0 0 auto;
 }
 
 @media (max-width: 1100px) {

@@ -1,16 +1,17 @@
 <script setup lang="ts">
 import { reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
+import Password from 'primevue/password'
+import { useToast } from 'primevue/usetoast'
 import { authApi } from '@/api'
 import { apiMessage } from '@/api/client'
+import { rules, useValidation } from '@/composables/useValidation'
 import { useAuthStore } from '@/stores/auth'
 
 const { t } = useI18n()
+const toast = useToast()
 const auth = useAuthStore()
 
-const profileRef = ref<FormInstance>()
-const passwordRef = ref<FormInstance>()
 const savingProfile = ref(false)
 const savingPassword = ref(false)
 
@@ -26,57 +27,42 @@ const password = reactive({
   password_confirmation: '',
 })
 
-const profileRules: FormRules = {
-  name: [{ required: true, message: t('common.error'), trigger: 'blur' }],
-  email: [
-    { required: true, message: t('auth.emailRequired'), trigger: 'blur' },
-    { type: 'email', message: t('auth.emailInvalid'), trigger: 'blur' },
-  ],
-}
+const profileForm = useValidation(profile, {
+  name: [rules.required(t('common.requiredField'))],
+  email: [rules.required(t('auth.emailRequired')), rules.email(t('auth.emailInvalid'))],
+})
 
-const passwordRules: FormRules = {
-  current_password: [{ required: true, message: t('auth.passwordRequired'), trigger: 'blur' }],
-  password: [
-    { required: true, message: t('auth.passwordRequired'), trigger: 'blur' },
-    { min: 6, message: t('auth.passwordMin'), trigger: 'blur' },
-  ],
-  password_confirmation: [
-    {
-      validator: (_rule, value: string, callback: (error?: Error) => void) => {
-        if (value !== password.password) callback(new Error(t('profile.passwordMismatch')))
-        else callback()
-      },
-      trigger: 'blur',
-    },
-  ],
-}
+const passwordForm = useValidation(password, {
+  current_password: [rules.required(t('auth.passwordRequired'))],
+  password: [rules.required(t('auth.passwordRequired')), rules.minLength(6, t('auth.passwordMin'))],
+  password_confirmation: [rules.matches(() => password.password, t('profile.passwordMismatch'))],
+})
 
 async function saveProfile(): Promise<void> {
-  const valid = await profileRef.value?.validate().catch(() => false)
-  if (!valid) return
+  if (!profileForm.validate()) return
 
   savingProfile.value = true
   try {
     auth.setUser(await authApi.updateProfile(profile))
-    ElMessage.success(t('common.saved'))
+    toast.add({ severity: 'success', summary: t('common.saved'), life: 3000 })
   } catch (error) {
-    ElMessage.error(apiMessage(error))
+    toast.add({ severity: 'error', summary: apiMessage(error), life: 4000 })
   } finally {
     savingProfile.value = false
   }
 }
 
 async function savePassword(): Promise<void> {
-  const valid = await passwordRef.value?.validate().catch(() => false)
-  if (!valid) return
+  if (!passwordForm.validate()) return
 
   savingPassword.value = true
   try {
     await authApi.updateProfile(password)
-    ElMessage.success(t('profile.passwordUpdated'))
-    passwordRef.value?.resetFields()
+    toast.add({ severity: 'success', summary: t('profile.passwordUpdated'), life: 3000 })
+    Object.assign(password, { current_password: '', password: '', password_confirmation: '' })
+    passwordForm.clear()
   } catch (error) {
-    ElMessage.error(apiMessage(error))
+    toast.add({ severity: 'error', summary: apiMessage(error), life: 4000 })
   } finally {
     savingPassword.value = false
   }
@@ -94,46 +80,104 @@ async function savePassword(): Promise<void> {
 
     <div class="wf-grid profile-grid">
       <section class="wf-card panel panel--identity">
-        <el-avatar :size="82" :src="auth.user?.avatar ?? undefined" class="identity__avatar">
-          {{ auth.initials }}
-        </el-avatar>
+        <Avatar
+          :image="auth.user?.avatar ?? undefined"
+          :label="auth.user?.avatar ? undefined : auth.initials"
+          shape="circle"
+          size="xlarge"
+        />
         <h2 class="identity__name">{{ auth.user?.name }}</h2>
         <p class="wf-muted identity__email">{{ auth.user?.email }}</p>
-        <el-tag effect="plain" round>{{ auth.role ? t(`roles.${auth.role}`) : '' }}</el-tag>
+        <Tag v-if="auth.role" :value="t(`roles.${auth.role}`)" severity="secondary" rounded />
       </section>
 
       <section class="wf-card panel">
         <h3 class="panel__title">{{ t('profile.title') }}</h3>
-        <el-form ref="profileRef" :model="profile" :rules="profileRules" label-position="top">
-          <el-form-item :label="t('profile.name')" prop="name">
-            <el-input v-model="profile.name" />
-          </el-form-item>
-          <el-form-item :label="t('profile.email')" prop="email">
-            <el-input v-model="profile.email" type="email" />
-          </el-form-item>
-          <el-form-item :label="t('profile.avatar')" prop="avatar">
-            <el-input v-model="profile.avatar" placeholder="https://…" />
-          </el-form-item>
-          <el-button type="primary" :loading="savingProfile" @click="saveProfile">{{ t('common.save') }}</el-button>
-        </el-form>
+        <form @submit.prevent="saveProfile">
+          <div class="wf-field">
+            <label for="name" class="wf-field__label">{{ t('profile.name') }}</label>
+            <InputText
+              id="name"
+              v-model="profile.name"
+              :invalid="Boolean(profileForm.errors.name)"
+              fluid
+              @blur="profileForm.validateField('name')"
+            />
+            <small v-if="profileForm.errors.name" class="wf-field__error">{{ profileForm.errors.name }}</small>
+          </div>
+
+          <div class="wf-field">
+            <label for="profile-email" class="wf-field__label">{{ t('profile.email') }}</label>
+            <InputText
+              id="profile-email"
+              v-model="profile.email"
+              type="email"
+              :invalid="Boolean(profileForm.errors.email)"
+              fluid
+              @blur="profileForm.validateField('email')"
+            />
+            <small v-if="profileForm.errors.email" class="wf-field__error">{{ profileForm.errors.email }}</small>
+          </div>
+
+          <div class="wf-field">
+            <label for="profile-avatar" class="wf-field__label">{{ t('profile.avatar') }}</label>
+            <InputText id="profile-avatar" v-model="profile.avatar" placeholder="https://…" fluid />
+          </div>
+
+          <Button type="submit" :label="t('common.save')" :loading="savingProfile" />
+        </form>
       </section>
 
       <section class="wf-card panel">
         <h3 class="panel__title">{{ t('profile.security') }}</h3>
-        <el-form ref="passwordRef" :model="password" :rules="passwordRules" label-position="top">
-          <el-form-item :label="t('profile.currentPassword')" prop="current_password">
-            <el-input v-model="password.current_password" type="password" show-password />
-          </el-form-item>
-          <el-form-item :label="t('profile.newPassword')" prop="password">
-            <el-input v-model="password.password" type="password" show-password />
-          </el-form-item>
-          <el-form-item :label="t('profile.confirmPassword')" prop="password_confirmation">
-            <el-input v-model="password.password_confirmation" type="password" show-password />
-          </el-form-item>
-          <el-button type="primary" plain :loading="savingPassword" @click="savePassword">
-            {{ t('common.save') }}
-          </el-button>
-        </el-form>
+        <form @submit.prevent="savePassword">
+          <div class="wf-field">
+            <label for="current-password" class="wf-field__label">{{ t('profile.currentPassword') }}</label>
+            <Password
+              id="current-password"
+              v-model="password.current_password"
+              :feedback="false"
+              toggle-mask
+              :invalid="Boolean(passwordForm.errors.current_password)"
+              fluid
+            />
+            <small v-if="passwordForm.errors.current_password" class="wf-field__error">
+              {{ passwordForm.errors.current_password }}
+            </small>
+          </div>
+
+          <div class="wf-field">
+            <label for="new-password" class="wf-field__label">{{ t('profile.newPassword') }}</label>
+            <Password
+              id="new-password"
+              v-model="password.password"
+              toggle-mask
+              :invalid="Boolean(passwordForm.errors.password)"
+              fluid
+            />
+            <small v-if="passwordForm.errors.password" class="wf-field__error">
+              {{ passwordForm.errors.password }}
+            </small>
+          </div>
+
+          <div class="wf-field">
+            <label for="confirm-password" class="wf-field__label">{{ t('profile.confirmPassword') }}</label>
+            <Password
+              id="confirm-password"
+              v-model="password.password_confirmation"
+              :feedback="false"
+              toggle-mask
+              :invalid="Boolean(passwordForm.errors.password_confirmation)"
+              fluid
+              @blur="passwordForm.validateField('password_confirmation')"
+            />
+            <small v-if="passwordForm.errors.password_confirmation" class="wf-field__error">
+              {{ passwordForm.errors.password_confirmation }}
+            </small>
+          </div>
+
+          <Button type="submit" :label="t('common.save')" severity="secondary" outlined :loading="savingPassword" />
+        </form>
       </section>
     </div>
   </div>
@@ -162,10 +206,6 @@ async function savePassword(): Promise<void> {
   margin: 0 0 18px;
   font-size: 14px;
   font-weight: 650;
-}
-
-.identity__avatar {
-  font-size: 26px;
 }
 
 .identity__name {

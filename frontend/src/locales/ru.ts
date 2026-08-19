@@ -19,6 +19,7 @@ export default {
     created: 'Запись создана',
     deleted: 'Запись удалена',
     error: 'Ошибка',
+    requiredField: 'Обязательное поле',
     yes: 'Да',
     no: 'Нет',
     from: 'с',

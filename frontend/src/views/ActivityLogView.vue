@@ -1,15 +1,20 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { ElMessage } from 'element-plus'
+import Column from 'primevue/column'
+import DataTable from 'primevue/datatable'
+import DatePicker from 'primevue/datepicker'
+import { useToast } from 'primevue/usetoast'
+import type { DataTablePageEvent } from 'primevue/datatable'
 import EmptyState from '@/components/EmptyState.vue'
 import TableSkeleton from '@/components/TableSkeleton.vue'
 import { activityApi } from '@/api'
 import { apiMessage } from '@/api/client'
-import { formatDateTime } from '@/composables/useTaskMeta'
+import { formatDateTime, toDateString } from '@/composables/useTaskMeta'
 import type { ActivityLog } from '@/types'
 
 const { t } = useI18n()
+const toast = useToast()
 
 const logs = ref<ActivityLog[]>([])
 const loading = ref(true)
@@ -17,22 +22,28 @@ const total = ref(0)
 const page = ref(1)
 const perPage = ref(20)
 
-const filters = reactive<{ action: string | null; entity: string | null; range: [string, string] | null }>({
+const filters = reactive<{ action: string | null; entity: string | null; range: Date[] | null }>({
   action: null,
   entity: null,
   range: null,
 })
 
-const actions = ['create', 'update', 'delete', 'move', 'login', 'logout']
-const entities = ['Employee', 'Task', 'Department', 'User']
+const actionOptions = computed(() =>
+  ['create', 'update', 'delete', 'move', 'login', 'logout'].map((value) => ({
+    value,
+    label: t(`activity.actions.${value}`),
+  })),
+)
 
-const actionTypes: Record<string, 'success' | 'primary' | 'danger' | 'warning' | 'info'> = {
+const entityOptions = ['Employee', 'Task', 'Department', 'User'].map((value) => ({ value, label: value }))
+
+const actionSeverities: Record<string, 'success' | 'info' | 'danger' | 'warn' | 'secondary'> = {
   create: 'success',
-  update: 'primary',
+  update: 'info',
   delete: 'danger',
-  move: 'warning',
-  login: 'info',
-  logout: 'info',
+  move: 'warn',
+  login: 'secondary',
+  logout: 'secondary',
 }
 
 async function fetch(): Promise<void> {
@@ -41,15 +52,15 @@ async function fetch(): Promise<void> {
     const response = await activityApi.list({
       action: filters.action ?? undefined,
       entity: filters.entity ?? undefined,
-      date_from: filters.range?.[0],
-      date_to: filters.range?.[1],
+      date_from: toDateString(filters.range?.[0]) ?? undefined,
+      date_to: toDateString(filters.range?.[1]) ?? undefined,
       page: page.value,
     })
     logs.value = response.data
     total.value = response.meta.total
     perPage.value = response.meta.per_page
   } catch (error) {
-    ElMessage.error(apiMessage(error))
+    toast.add({ severity: 'error', summary: apiMessage(error), life: 4000 })
   } finally {
     loading.value = false
   }
@@ -57,6 +68,11 @@ async function fetch(): Promise<void> {
 
 function applyFilters(): void {
   page.value = 1
+  void fetch()
+}
+
+function onPage(event: DataTablePageEvent): void {
+  page.value = event.page + 1
   void fetch()
 }
 
@@ -80,90 +96,96 @@ onMounted(fetch)
     </div>
 
     <div class="wf-card filters">
-      <el-select
+      <Select
         v-model="filters.action"
+        :options="actionOptions"
+        option-label="label"
+        option-value="value"
         :placeholder="t('activity.filterAction')"
-        clearable
+        show-clear
         class="filters__select"
-        @change="applyFilters"
-      >
-        <el-option v-for="item in actions" :key="item" :label="t(`activity.actions.${item}`)" :value="item" />
-      </el-select>
-
-      <el-select
-        v-model="filters.entity"
-        :placeholder="t('activity.filterEntity')"
-        clearable
-        class="filters__select"
-        @change="applyFilters"
-      >
-        <el-option v-for="item in entities" :key="item" :label="item" :value="item" />
-      </el-select>
-
-      <el-date-picker
-        v-model="filters.range"
-        type="daterange"
-        value-format="YYYY-MM-DD"
-        :start-placeholder="t('common.from')"
-        :end-placeholder="t('common.to')"
         @change="applyFilters"
       />
 
-      <el-button text @click="reset">{{ t('common.reset') }}</el-button>
+      <Select
+        v-model="filters.entity"
+        :options="entityOptions"
+        option-label="label"
+        option-value="value"
+        :placeholder="t('activity.filterEntity')"
+        show-clear
+        class="filters__select"
+        @change="applyFilters"
+      />
+
+      <DatePicker
+        v-model="filters.range"
+        selection-mode="range"
+        date-format="dd.mm.yy"
+        show-icon
+        :placeholder="`${t('common.from')} — ${t('common.to')}`"
+        class="filters__range"
+        @date-select="filters.range?.length === 2 && applyFilters()"
+      />
+
+      <Button :label="t('common.reset')" severity="secondary" text @click="reset" />
     </div>
 
     <div class="wf-card table-wrap">
-      <TableSkeleton v-if="loading" :rows="8" :columns="4" />
+      <TableSkeleton v-if="loading" :rows="8" :columns="5" />
 
-      <template v-else-if="logs.length">
-        <el-table :data="logs" style="width: 100%">
-          <el-table-column :label="t('activity.date')" width="170">
-            <template #default="{ row }: { row: ActivityLog }">{{ formatDateTime(row.created_at) }}</template>
-          </el-table-column>
+      <DataTable
+        v-else-if="logs.length"
+        :value="logs"
+        lazy
+        paginator
+        :rows="perPage"
+        :total-records="total"
+        :first="(page - 1) * perPage"
+        data-key="id"
+        @page="onPage"
+      >
+        <Column :header="t('activity.date')" style="width: 175px">
+          <template #body="{ data }: { data: ActivityLog }">{{ formatDateTime(data.created_at) }}</template>
+        </Column>
 
-          <el-table-column :label="t('activity.user')" min-width="170">
-            <template #default="{ row }: { row: ActivityLog }">
-              <div class="user">
-                <el-avatar :size="26" :src="row.user?.avatar ?? undefined">
-                  {{ (row.user?.name ?? 'S')[0] }}
-                </el-avatar>
-                <span>{{ row.user?.name ?? t('activity.system') }}</span>
-              </div>
-            </template>
-          </el-table-column>
+        <Column :header="t('activity.user')" style="min-width: 170px">
+          <template #body="{ data }: { data: ActivityLog }">
+            <div class="user">
+              <Avatar
+                :image="data.user?.avatar ?? undefined"
+                :label="data.user?.avatar ? undefined : (data.user?.name ?? 'S')[0]"
+                shape="circle"
+                size="normal"
+                class="user__avatar"
+              />
+              <span>{{ data.user?.name ?? t('activity.system') }}</span>
+            </div>
+          </template>
+        </Column>
 
-          <el-table-column :label="t('activity.action')" width="140">
-            <template #default="{ row }: { row: ActivityLog }">
-              <el-tag size="small" :type="actionTypes[row.action] ?? 'info'" effect="light" round>
-                {{ t(`activity.actions.${row.action}`, row.action) }}
-              </el-tag>
-            </template>
-          </el-table-column>
+        <Column :header="t('activity.action')" style="width: 150px">
+          <template #body="{ data }: { data: ActivityLog }">
+            <Tag
+              :value="t(`activity.actions.${data.action}`, data.action)"
+              :severity="actionSeverities[data.action] ?? 'secondary'"
+              rounded
+            />
+          </template>
+        </Column>
 
-          <el-table-column :label="t('activity.entity')" width="130">
-            <template #default="{ row }: { row: ActivityLog }">
-              <span class="wf-muted">{{ row.entity }}{{ row.entity_id ? ` #${row.entity_id}` : '' }}</span>
-            </template>
-          </el-table-column>
+        <Column :header="t('activity.entity')" style="width: 140px">
+          <template #body="{ data }: { data: ActivityLog }">
+            <span class="wf-muted">{{ data.entity }}{{ data.entity_id ? ` #${data.entity_id}` : '' }}</span>
+          </template>
+        </Column>
 
-          <el-table-column :label="t('activity.description')" min-width="240">
-            <template #default="{ row }: { row: ActivityLog }">{{ row.description ?? '—' }}</template>
-          </el-table-column>
-        </el-table>
+        <Column :header="t('activity.description')" style="min-width: 240px">
+          <template #body="{ data }: { data: ActivityLog }">{{ data.description ?? '—' }}</template>
+        </Column>
+      </DataTable>
 
-        <div class="pagination">
-          <el-pagination
-            layout="prev, pager, next"
-            background
-            :total="total"
-            :page-size="perPage"
-            :current-page="page"
-            @current-change="(value: number) => { page = value; fetch() }"
-          />
-        </div>
-      </template>
-
-      <EmptyState v-else :text="t('activity.empty')" icon="Clock" />
+      <EmptyState v-else :text="t('activity.empty')" icon="pi pi-history" />
     </div>
   </div>
 </template>
@@ -178,7 +200,11 @@ onMounted(fetch)
 }
 
 .filters__select {
-  width: 190px;
+  width: 195px;
+}
+
+.filters__range {
+  width: 260px;
 }
 
 .table-wrap {
@@ -192,9 +218,9 @@ onMounted(fetch)
   font-size: 13px;
 }
 
-.pagination {
-  display: flex;
-  justify-content: flex-end;
-  padding: 14px 4px 4px;
+.user__avatar {
+  width: 1.7rem;
+  height: 1.7rem;
+  font-size: 0.7rem;
 }
 </style>

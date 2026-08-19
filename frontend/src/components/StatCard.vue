@@ -4,7 +4,7 @@ withDefaults(
     label: string
     value: number | string
     icon: string
-    tone?: 'primary' | 'success' | 'warning' | 'danger'
+    tone?: 'primary' | 'success' | 'warn' | 'danger'
     loading?: boolean
   }>(),
   { tone: 'primary', loading: false },
@@ -14,11 +14,11 @@ withDefaults(
 <template>
   <div class="stat wf-card">
     <div class="stat__icon" :class="`stat__icon--${tone}`">
-      <el-icon :size="20"><component :is="icon" /></el-icon>
+      <i :class="icon" />
     </div>
     <div class="stat__body">
       <span class="stat__label">{{ label }}</span>
-      <el-skeleton v-if="loading" :rows="1" animated class="stat__skeleton" />
+      <Skeleton v-if="loading" width="4rem" height="1.6rem" />
       <span v-else class="stat__value">{{ value }}</span>
     </div>
   </div>
@@ -39,25 +39,26 @@ withDefaults(
   display: grid;
   place-items: center;
   flex: 0 0 auto;
+  font-size: 18px;
 
   &--primary {
-    background: var(--el-color-primary-light-9);
-    color: var(--el-color-primary);
+    background: color-mix(in srgb, var(--p-primary-color) 14%, transparent);
+    color: var(--p-primary-color);
   }
 
   &--success {
-    background: var(--el-color-success-light-9);
-    color: var(--el-color-success);
+    background: color-mix(in srgb, var(--p-green-500) 14%, transparent);
+    color: var(--p-green-500);
   }
 
-  &--warning {
-    background: var(--el-color-warning-light-9);
-    color: var(--el-color-warning);
+  &--warn {
+    background: color-mix(in srgb, var(--p-amber-500) 16%, transparent);
+    color: var(--p-amber-500);
   }
 
   &--danger {
-    background: var(--el-color-danger-light-9);
-    color: var(--el-color-danger);
+    background: color-mix(in srgb, var(--p-red-500) 14%, transparent);
+    color: var(--p-red-500);
   }
 }
 
@@ -79,9 +80,5 @@ withDefaults(
   font-size: 24px;
   font-weight: 680;
   line-height: 1.1;
-}
-
-.stat__skeleton {
-  width: 60px;
 }
 </style>

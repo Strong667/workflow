@@ -39,8 +39,9 @@ const loaded = new Set<Locale>(['ru'])
  * Загрузчики перечислены явно: шаблонный import() Vite не разбирает статически,
  * и в прод-сборке такие чанки не создаются.
  */
-const loaders: Record<Locale, () => Promise<{ default: MessageSchema }>> = {
-  ru: () => import('./ru'),
+type LazyLocale = Exclude<Locale, 'ru'>
+
+const loaders: Record<LazyLocale, () => Promise<{ default: MessageSchema }>> = {
   en: () => import('./en'),
   kk: () => import('./kk'),
 }
@@ -48,7 +49,7 @@ const loaders: Record<Locale, () => Promise<{ default: MessageSchema }>> = {
 /** Догружает файл переводов по требованию — отдельным чанком. */
 export async function setLocale(locale: Locale): Promise<void> {
   if (!loaded.has(locale)) {
-    const messages = await loaders[locale]()
+    const messages = await loaders[locale as LazyLocale]()
     i18n.global.setLocaleMessage(locale, messages.default)
     loaded.add(locale)
   }

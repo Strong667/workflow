@@ -10,13 +10,13 @@ const auth = useAuthStore()
 
 <template>
   <div class="error-page">
-    <div class="error-page__code">403</div>
+    <div class="error-page__code error-page__code--403">403</div>
     <h1 class="error-page__title">{{ t('errors.forbidden') }}</h1>
     <p class="error-page__text wf-muted">{{ t('errors.forbiddenText') }}</p>
-    <el-tag v-if="auth.role" effect="plain" round>{{ t(`roles.${auth.role}`) }}</el-tag>
+    <Tag v-if="auth.role" :value="t(`roles.${auth.role}`)" severity="secondary" rounded />
     <div class="error-page__actions">
-      <el-button @click="router.back()">{{ t('errors.goBack') }}</el-button>
-      <el-button type="primary" @click="router.push({ name: 'dashboard' })">{{ t('errors.goHome') }}</el-button>
+      <Button :label="t('errors.goBack')" severity="secondary" outlined @click="router.back()" />
+      <Button :label="t('errors.goHome')" @click="router.push({ name: 'dashboard' })" />
     </div>
   </div>
 </template>
@@ -38,10 +38,13 @@ const auth = useAuthStore()
   font-weight: 800;
   line-height: 1;
   letter-spacing: -3px;
-  background: linear-gradient(120deg, var(--el-color-danger), #f97316);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
+
+  &--403 {
+    background: linear-gradient(120deg, var(--p-red-500), var(--p-orange-500));
+  }
 }
 
 .error-page__title {

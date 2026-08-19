@@ -40,7 +40,7 @@ function onDrop(event: DragEvent, index: number, status: TaskStatus): void {
     <header class="column__head">
       <span class="column__dot" :style="{ background: color }" />
       <h3 class="column__title">{{ title }}</h3>
-      <el-tag size="small" effect="plain" round>{{ tasks.length }}</el-tag>
+      <Badge :value="tasks.length" severity="secondary" />
     </header>
 
     <div class="column__body">
@@ -63,7 +63,7 @@ function onDrop(event: DragEvent, index: number, status: TaskStatus): void {
         </div>
       </transition-group>
 
-      <EmptyState v-if="!tasks.length" :text="emptyText" icon="DocumentRemove" />
+      <EmptyState v-if="!tasks.length" :text="emptyText" icon="pi pi-inbox" />
     </div>
   </section>
 </template>
@@ -74,16 +74,20 @@ function onDrop(event: DragEvent, index: number, status: TaskStatus): void {
   flex-direction: column;
   min-width: 268px;
   flex: 1;
-  background: var(--el-fill-color-lighter);
+  background: var(--p-surface-100);
   border: 1px dashed transparent;
-  border-radius: 14px;
+  border-radius: var(--wf-radius);
   padding: 12px;
   transition: border-color 0.15s ease, background 0.15s ease;
 
   &--over {
-    border-color: var(--el-color-primary);
-    background: var(--el-color-primary-light-9);
+    border-color: var(--p-primary-color);
+    background: color-mix(in srgb, var(--p-primary-color) 8%, transparent);
   }
+}
+
+html.dark .column {
+  background: var(--p-surface-900);
 }
 
 .column__head {

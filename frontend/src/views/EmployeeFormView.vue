@@ -2,42 +2,41 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
+import DatePicker from 'primevue/datepicker'
+import { useToast } from 'primevue/usetoast'
 import { apiMessage } from '@/api/client'
+import { toDate, toDateString } from '@/composables/useTaskMeta'
+import { rules, useValidation } from '@/composables/useValidation'
 import { useDepartmentsStore } from '@/stores/departments'
 import { useEmployeesStore } from '@/stores/employees'
-import type { Employee } from '@/types'
 
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
+const toast = useToast()
 const employees = useEmployeesStore()
 const departments = useDepartmentsStore()
 
 const employeeId = computed(() => (route.params.id ? Number(route.params.id) : null))
 const isEdit = computed(() => employeeId.value !== null)
 const loading = ref(false)
-const formRef = ref<FormInstance>()
 
-const form = reactive<Partial<Employee>>({
+const form = reactive({
   first_name: '',
   last_name: '',
   email: '',
   phone: '',
-  department_id: null,
+  department_id: null as number | null,
   position: '',
-  hire_date: null,
+  hire_date: null as Date | null,
   avatar: '',
 })
 
-const rules: FormRules = {
-  first_name: [{ required: true, message: t('common.error'), trigger: 'blur' }],
-  last_name: [{ required: true, message: t('common.error'), trigger: 'blur' }],
-  email: [
-    { required: true, message: t('auth.emailRequired'), trigger: 'blur' },
-    { type: 'email', message: t('auth.emailInvalid'), trigger: 'blur' },
-  ],
-}
+const { errors, validate, validateField } = useValidation(form, {
+  first_name: [rules.required(t('common.requiredField'))],
+  last_name: [rules.required(t('common.requiredField'))],
+  email: [rules.required(t('auth.emailRequired')), rules.email(t('auth.emailInvalid'))],
+})
 
 onMounted(async () => {
   await departments.fetchOptions()
@@ -53,11 +52,11 @@ onMounted(async () => {
         phone: employee.phone ?? '',
         department_id: employee.department_id,
         position: employee.position ?? '',
-        hire_date: employee.hire_date,
+        hire_date: toDate(employee.hire_date),
         avatar: employee.avatar ?? '',
       })
     } catch (error) {
-      ElMessage.error(apiMessage(error, t('employees.notFound')))
+      toast.add({ severity: 'error', summary: apiMessage(error, t('employees.notFound')), life: 4000 })
       await router.push({ name: 'employees' })
     } finally {
       loading.value = false
@@ -66,21 +65,22 @@ onMounted(async () => {
 })
 
 async function submit(): Promise<void> {
-  const valid = await formRef.value?.validate().catch(() => false)
-  if (!valid) return
+  if (!validate()) return
+
+  const payload = { ...form, hire_date: toDateString(form.hire_date) }
 
   try {
     if (isEdit.value && employeeId.value) {
-      await employees.update(employeeId.value, form)
-      ElMessage.success(t('common.saved'))
+      await employees.update(employeeId.value, payload)
+      toast.add({ severity: 'success', summary: t('common.saved'), life: 3000 })
       await router.push({ name: 'employees.show', params: { id: employeeId.value } })
     } else {
-      const created = await employees.create(form)
-      ElMessage.success(t('common.created'))
+      const created = await employees.create(payload)
+      toast.add({ severity: 'success', summary: t('common.created'), life: 3000 })
       await router.push({ name: 'employees.show', params: { id: created.id } })
     }
   } catch (error) {
-    ElMessage.error(apiMessage(error))
+    toast.add({ severity: 'error', summary: apiMessage(error), life: 4000 })
   }
 }
 </script>
@@ -92,54 +92,95 @@ async function submit(): Promise<void> {
         <h1 class="wf-page__title">{{ isEdit ? t('employees.editTitle') : t('employees.createTitle') }}</h1>
         <p class="wf-page__subtitle">{{ t('employees.subtitle') }}</p>
       </div>
-      <el-button icon="ArrowLeft" @click="router.back()">{{ t('common.back') }}</el-button>
+      <Button icon="pi pi-arrow-left" :label="t('common.back')" severity="secondary" outlined @click="router.back()" />
     </div>
 
-    <div class="wf-card form" v-loading="loading">
-      <el-form ref="formRef" :model="form" :rules="rules" label-position="top">
+    <div class="wf-card form">
+      <div v-if="loading" class="form__loading"><ProgressSpinner style="width: 42px; height: 42px" /></div>
+
+      <form v-else @submit.prevent="submit">
         <div class="form__grid">
-          <el-form-item :label="t('employees.firstName')" prop="first_name">
-            <el-input v-model="form.first_name" />
-          </el-form-item>
+          <div class="wf-field">
+            <label for="first_name" class="wf-field__label">{{ t('employees.firstName') }}</label>
+            <InputText
+              id="first_name"
+              v-model="form.first_name"
+              :invalid="Boolean(errors.first_name)"
+              fluid
+              @blur="validateField('first_name')"
+            />
+            <small v-if="errors.first_name" class="wf-field__error">{{ errors.first_name }}</small>
+          </div>
 
-          <el-form-item :label="t('employees.lastName')" prop="last_name">
-            <el-input v-model="form.last_name" />
-          </el-form-item>
+          <div class="wf-field">
+            <label for="last_name" class="wf-field__label">{{ t('employees.lastName') }}</label>
+            <InputText
+              id="last_name"
+              v-model="form.last_name"
+              :invalid="Boolean(errors.last_name)"
+              fluid
+              @blur="validateField('last_name')"
+            />
+            <small v-if="errors.last_name" class="wf-field__error">{{ errors.last_name }}</small>
+          </div>
 
-          <el-form-item :label="t('employees.email')" prop="email">
-            <el-input v-model="form.email" type="email" />
-          </el-form-item>
+          <div class="wf-field">
+            <label for="email" class="wf-field__label">{{ t('employees.email') }}</label>
+            <InputText
+              id="email"
+              v-model="form.email"
+              type="email"
+              :invalid="Boolean(errors.email)"
+              fluid
+              @blur="validateField('email')"
+            />
+            <small v-if="errors.email" class="wf-field__error">{{ errors.email }}</small>
+          </div>
 
-          <el-form-item :label="t('employees.phone')" prop="phone">
-            <el-input v-model="form.phone" placeholder="+7 700 000 00 00" />
-          </el-form-item>
+          <div class="wf-field">
+            <label for="phone" class="wf-field__label">{{ t('employees.phone') }}</label>
+            <InputText id="phone" v-model="form.phone" placeholder="+7 700 000 00 00" fluid />
+          </div>
 
-          <el-form-item :label="t('employees.department')" prop="department_id">
-            <el-select v-model="form.department_id" clearable :placeholder="t('employees.noDepartment')" class="full">
-              <el-option v-for="item in departments.options" :key="item.id" :label="item.name" :value="item.id" />
-            </el-select>
-          </el-form-item>
+          <div class="wf-field">
+            <label for="department" class="wf-field__label">{{ t('employees.department') }}</label>
+            <Select
+              id="department"
+              v-model="form.department_id"
+              :options="departments.options"
+              option-label="name"
+              option-value="id"
+              :placeholder="t('employees.noDepartment')"
+              show-clear
+              fluid
+            />
+          </div>
 
-          <el-form-item :label="t('employees.position')" prop="position">
-            <el-input v-model="form.position" />
-          </el-form-item>
+          <div class="wf-field">
+            <label for="position" class="wf-field__label">{{ t('employees.position') }}</label>
+            <InputText id="position" v-model="form.position" fluid />
+          </div>
 
-          <el-form-item :label="t('employees.hireDate')" prop="hire_date">
-            <el-date-picker v-model="form.hire_date" type="date" value-format="YYYY-MM-DD" class="full" />
-          </el-form-item>
+          <div class="wf-field">
+            <label for="hire_date" class="wf-field__label">{{ t('employees.hireDate') }}</label>
+            <DatePicker id="hire_date" v-model="form.hire_date" date-format="dd.mm.yy" show-icon fluid />
+          </div>
 
-          <el-form-item :label="t('employees.avatar')" prop="avatar">
-            <el-input v-model="form.avatar" placeholder="https://…" />
-          </el-form-item>
+          <div class="wf-field">
+            <label for="avatar" class="wf-field__label">{{ t('employees.avatar') }}</label>
+            <InputText id="avatar" v-model="form.avatar" placeholder="https://…" fluid />
+          </div>
         </div>
 
         <div class="form__actions">
-          <el-button @click="router.back()">{{ t('common.cancel') }}</el-button>
-          <el-button type="primary" :loading="employees.saving" @click="submit">
-            {{ isEdit ? t('common.save') : t('common.create') }}
-          </el-button>
+          <Button :label="t('common.cancel')" severity="secondary" outlined @click="router.back()" />
+          <Button
+            type="submit"
+            :label="isEdit ? t('common.save') : t('common.create')"
+            :loading="employees.saving"
+          />
         </div>
-      </el-form>
+      </form>
     </div>
   </div>
 </template>
@@ -148,6 +189,12 @@ async function submit(): Promise<void> {
 .form {
   padding: 22px;
   max-width: 880px;
+}
+
+.form__loading {
+  display: grid;
+  place-items: center;
+  min-height: 260px;
 }
 
 .form__grid {
@@ -161,10 +208,5 @@ async function submit(): Promise<void> {
   justify-content: flex-end;
   gap: 10px;
   margin-top: 12px;
-}
-
-:deep(.full),
-:deep(.el-date-editor.full) {
-  width: 100%;
 }
 </style>

@@ -21,6 +21,7 @@ const messages: MessageSchema = {
     created: 'Жазба құрылды',
     deleted: 'Жазба жойылды',
     error: 'Қате',
+    requiredField: 'Міндетті өріс',
     yes: 'Иә',
     no: 'Жоқ',
     from: 'бастап',

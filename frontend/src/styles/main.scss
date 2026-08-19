@@ -1,28 +1,20 @@
 :root {
-  --el-color-primary: #4f46e5;
-  --el-color-primary-light-3: #7c74ec;
-  --el-color-primary-light-5: #a29bf2;
-  --el-color-primary-light-7: #c8c3f7;
-  --el-color-primary-light-8: #dbd8fa;
-  --el-color-primary-light-9: #eeecfd;
-  --el-color-primary-dark-2: #3f38b8;
-  --el-border-radius-base: 10px;
-
   --wf-sidebar-width: 248px;
   --wf-sidebar-width-collapsed: 68px;
   --wf-header-height: 62px;
-  --wf-surface: #ffffff;
-  --wf-page-bg: #f4f5f9;
-  --wf-border: #e6e8ef;
-  --wf-text-muted: #8a90a2;
+
+  --wf-surface: var(--p-content-background);
+  --wf-page-bg: var(--p-surface-50);
+  --wf-border: var(--p-content-border-color);
+  --wf-text: var(--p-text-color);
+  --wf-text-muted: var(--p-text-muted-color);
+  --wf-primary: var(--p-primary-color);
+  --wf-radius: 14px;
   --wf-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 4px 16px rgba(16, 24, 40, 0.05);
 }
 
 html.dark {
-  --wf-surface: #1c1d22;
-  --wf-page-bg: #141519;
-  --wf-border: #2c2e36;
-  --wf-text-muted: #9aa0b0;
+  --wf-page-bg: var(--p-surface-950);
   --wf-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
@@ -39,8 +31,9 @@ body,
 
 body {
   background: var(--wf-page-bg);
-  color: var(--el-text-color-primary);
+  color: var(--wf-text);
   font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', sans-serif;
+  font-size: 14px;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -52,7 +45,7 @@ a {
 .wf-card {
   background: var(--wf-surface);
   border: 1px solid var(--wf-border);
-  border-radius: 14px;
+  border-radius: var(--wf-radius);
   box-shadow: var(--wf-shadow);
 }
 
@@ -86,7 +79,7 @@ a {
 
 .wf-toolbar {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   flex-wrap: wrap;
   align-items: center;
 }
@@ -98,6 +91,23 @@ a {
 .wf-grid {
   display: grid;
   gap: 16px;
+}
+
+.wf-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 18px;
+}
+
+.wf-field__label {
+  font-size: 13px;
+  font-weight: 550;
+}
+
+.wf-field__error {
+  font-size: 12px;
+  color: var(--p-red-500);
 }
 
 .fade-enter-active,
@@ -123,28 +133,22 @@ a {
   transform: scale(0.97);
 }
 
-.list-leave-active {
-  position: absolute;
-  width: calc(100% - 24px);
-}
-
-/* Element Plus: сглаживание отступов таблиц и карточек */
-.el-table {
-  --el-table-border-color: var(--wf-border);
-  border-radius: 12px;
-}
-
-.el-table th.el-table__cell {
+/* PrimeVue: убираем рамку таблицы — карточка уже даёт границу */
+.p-datatable .p-datatable-header,
+.p-datatable .p-datatable-footer {
   background: transparent;
-  font-weight: 600;
-  color: var(--wf-text-muted);
-  font-size: 12px;
+}
+
+.p-datatable-thead > tr > th {
+  font-size: 11.5px;
   text-transform: uppercase;
   letter-spacing: 0.4px;
+  color: var(--wf-text-muted);
 }
 
-.el-scrollbar__bar {
-  z-index: 5;
+.p-paginator {
+  background: transparent;
+  padding-inline: 0;
 }
 
 @media (max-width: 768px) {
