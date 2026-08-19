@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
+import { Dark } from 'quasar'
 import { getStoredLocale, LOCALE_STORAGE_KEY, setLocale } from '@/locales'
 import type { Locale, Theme } from '@/types'
 
@@ -27,6 +28,9 @@ export const useUiStore = defineStore('ui', () => {
   function applyTheme(next: Theme): void {
     theme.value = next
     localStorage.setItem(THEME_KEY, next)
+    // Quasar красит свои компоненты через body.body--dark,
+    // класс на <html> нужен собственным стилям приложения.
+    Dark.set(next === 'dark')
     document.documentElement.classList.toggle('dark', next === 'dark')
     document.documentElement.dataset.theme = next
   }

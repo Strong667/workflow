@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useToast } from 'primevue/usetoast'
+import { useQuasar } from 'quasar'
 import { authApi } from '@/api'
 import { apiMessage } from '@/api/client'
 import { SUPPORTED_LOCALES } from '@/locales'
@@ -10,7 +10,7 @@ import { useUiStore } from '@/stores/ui'
 import type { Locale, Theme } from '@/types'
 
 const { t } = useI18n()
-const toast = useToast()
+const $q = useQuasar()
 const ui = useUiStore()
 const auth = useAuthStore()
 
@@ -21,7 +21,7 @@ const stack = [
   'Pinia',
   'Vue Router',
   'Axios',
-  'PrimeVue 4',
+  'Quasar 2',
   'Chart.js',
   'Vue I18n',
   'Laravel 12',
@@ -29,8 +29,8 @@ const stack = [
 ]
 
 const themeOptions = computed(() => [
-  { value: 'light', label: t('settings.light'), icon: 'pi pi-sun' },
-  { value: 'dark', label: t('settings.dark'), icon: 'pi pi-moon' },
+  { value: 'light', label: t('settings.light'), icon: 'light_mode' },
+  { value: 'dark', label: t('settings.dark'), icon: 'dark_mode' },
 ])
 
 const about = computed(() => [
@@ -44,12 +44,11 @@ async function persist(payload: { theme?: Theme; language?: Locale }): Promise<v
   try {
     auth.setUser(await authApi.updateProfile(payload))
   } catch (error) {
-    toast.add({ severity: 'error', summary: apiMessage(error), life: 4000 })
+    $q.notify({ type: 'negative', message: apiMessage(error) })
   }
 }
 
-async function onThemeChange(value: Theme | null): Promise<void> {
-  if (!value) return
+async function onThemeChange(value: Theme): Promise<void> {
   ui.applyTheme(value)
   await persist({ theme: value })
 }
@@ -73,62 +72,65 @@ async function onLocaleChange(value: Locale): Promise<void> {
       <section class="wf-card panel">
         <h3 class="panel__title">{{ t('settings.appearance') }}</h3>
 
-        <div class="row">
-          <div class="row__label">
+        <div class="row-line">
+          <div class="row-line__label">
             <span>{{ t('settings.theme') }}</span>
-            <span class="wf-muted row__hint">{{ ui.theme === 'dark' ? t('settings.dark') : t('settings.light') }}</span>
+            <span class="wf-muted row-line__hint">
+              {{ ui.theme === 'dark' ? t('settings.dark') : t('settings.light') }}
+            </span>
           </div>
-          <SelectButton
+          <q-btn-toggle
             :model-value="ui.theme"
             :options="themeOptions"
-            option-label="label"
-            option-value="value"
-            :allow-empty="false"
-            @update:model-value="(value: Theme | null) => onThemeChange(value)"
-          >
-            <template #option="{ option }">
-              <i :class="option.icon" class="theme-option__icon" />
-              <span>{{ option.label }}</span>
-            </template>
-          </SelectButton>
+            no-caps
+            unelevated
+            toggle-color="primary"
+            color="grey-3"
+            text-color="grey-9"
+            @update:model-value="(value: Theme) => onThemeChange(value)"
+          />
         </div>
 
-        <div class="row">
-          <div class="row__label">
+        <div class="row-line">
+          <div class="row-line__label">
             <span>{{ t('settings.language') }}</span>
-            <span class="wf-muted row__hint">ru / en / kk</span>
+            <span class="wf-muted row-line__hint">ru / en / kk</span>
           </div>
-          <Select
+          <q-select
             :model-value="ui.locale"
             :options="SUPPORTED_LOCALES"
             option-label="label"
             option-value="value"
-            class="row__control"
+            emit-value
+            map-options
+            outlined
+            dense
+            class="row-line__control"
             @update:model-value="(value: Locale) => onLocaleChange(value)"
           />
         </div>
 
-        <div class="row">
-          <div class="row__label">
+        <div class="row-line">
+          <div class="row-line__label">
             <span>{{ t('settings.sidebar') }}</span>
           </div>
-          <ToggleSwitch :model-value="ui.sidebarCollapsed" @update:model-value="ui.toggleSidebar()" />
+          <q-toggle :model-value="ui.sidebarCollapsed" color="primary" @update:model-value="ui.toggleSidebar()" />
         </div>
       </section>
 
       <section class="wf-card panel">
         <h3 class="panel__title">{{ t('settings.about') }}</h3>
 
-        <ul class="details">
-          <li v-for="row in about" :key="row.label" class="details__row">
-            <span class="wf-muted">{{ row.label }}</span>
-            <span class="details__value">{{ row.value }}</span>
-          </li>
-        </ul>
+        <q-list separator>
+          <q-item v-for="row in about" :key="row.label" class="about__row">
+            <q-item-section class="wf-muted">{{ row.label }}</q-item-section>
+            <q-item-section side class="about__value">{{ row.value }}</q-item-section>
+          </q-item>
+        </q-list>
 
         <h4 class="panel__subtitle">{{ t('settings.stack') }}</h4>
         <div class="tags">
-          <Tag v-for="item in stack" :key="item" :value="item" severity="secondary" rounded />
+          <q-chip v-for="item in stack" :key="item" dense square outline color="primary" :label="item" />
         </div>
       </section>
     </div>
@@ -146,7 +148,7 @@ async function onLocaleChange(value: Locale): Promise<void> {
 }
 
 .panel__title {
-  margin: 0 0 18px;
+  margin: 0 0 12px;
   font-size: 14px;
   font-weight: 650;
 }
@@ -157,7 +159,7 @@ async function onLocaleChange(value: Locale): Promise<void> {
   font-weight: 600;
 }
 
-.row {
+.row-line {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -171,50 +173,34 @@ async function onLocaleChange(value: Locale): Promise<void> {
   }
 }
 
-.row__label {
+.row-line__label {
   display: flex;
   flex-direction: column;
   font-size: 13.5px;
 }
 
-.row__hint {
+.row-line__hint {
   font-size: 11.5px;
 }
 
-.row__control {
+.row-line__control {
   width: 190px;
 }
 
-.theme-option__icon {
-  margin-right: 6px;
-}
-
-.details {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.details__row {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--wf-border);
+.about__row {
+  padding-left: 0;
+  padding-right: 0;
   font-size: 13px;
-
-  &:last-child {
-    border-bottom: none;
-  }
+  min-height: 42px;
 }
 
-.details__value {
+.about__value {
   font-weight: 550;
 }
 
 .tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 7px;
+  gap: 6px;
 }
 </style>

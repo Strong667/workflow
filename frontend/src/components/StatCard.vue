@@ -4,7 +4,7 @@ withDefaults(
     label: string
     value: number | string
     icon: string
-    tone?: 'primary' | 'success' | 'warn' | 'danger'
+    tone?: 'primary' | 'positive' | 'warning' | 'negative'
     loading?: boolean
   }>(),
   { tone: 'primary', loading: false },
@@ -14,11 +14,11 @@ withDefaults(
 <template>
   <div class="stat wf-card">
     <div class="stat__icon" :class="`stat__icon--${tone}`">
-      <i :class="icon" />
+      <q-icon :name="icon" size="22px" />
     </div>
     <div class="stat__body">
       <span class="stat__label">{{ label }}</span>
-      <Skeleton v-if="loading" width="4rem" height="1.6rem" />
+      <q-skeleton v-if="loading" type="text" width="60px" height="28px" />
       <span v-else class="stat__value">{{ value }}</span>
     </div>
   </div>
@@ -39,26 +39,25 @@ withDefaults(
   display: grid;
   place-items: center;
   flex: 0 0 auto;
-  font-size: 18px;
 
   &--primary {
-    background: color-mix(in srgb, var(--p-primary-color) 14%, transparent);
-    color: var(--p-primary-color);
+    background: rgba(79, 70, 229, 0.14);
+    color: var(--q-primary);
   }
 
-  &--success {
-    background: color-mix(in srgb, var(--p-green-500) 14%, transparent);
-    color: var(--p-green-500);
+  &--positive {
+    background: rgba(34, 197, 94, 0.14);
+    color: var(--q-positive);
   }
 
-  &--warn {
-    background: color-mix(in srgb, var(--p-amber-500) 16%, transparent);
-    color: var(--p-amber-500);
+  &--warning {
+    background: rgba(245, 158, 11, 0.16);
+    color: var(--q-warning);
   }
 
-  &--danger {
-    background: color-mix(in srgb, var(--p-red-500) 14%, transparent);
-    color: var(--p-red-500);
+  &--negative {
+    background: rgba(239, 68, 68, 0.14);
+    color: var(--q-negative);
   }
 }
 

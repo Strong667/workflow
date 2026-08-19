@@ -2,10 +2,9 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
-import DatePicker from 'primevue/datepicker'
-import { useToast } from 'primevue/usetoast'
+import { useQuasar } from 'quasar'
 import { apiMessage } from '@/api/client'
-import { toDate, toDateString } from '@/composables/useTaskMeta'
+import { fromQuasarDate, toQuasarDate } from '@/composables/useTaskMeta'
 import { rules, useValidation } from '@/composables/useValidation'
 import { useDepartmentsStore } from '@/stores/departments'
 import { useEmployeesStore } from '@/stores/employees'
@@ -13,7 +12,7 @@ import { useEmployeesStore } from '@/stores/employees'
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
-const toast = useToast()
+const $q = useQuasar()
 const employees = useEmployeesStore()
 const departments = useDepartmentsStore()
 
@@ -28,7 +27,7 @@ const form = reactive({
   phone: '',
   department_id: null as number | null,
   position: '',
-  hire_date: null as Date | null,
+  hire_date: null as string | null,
   avatar: '',
 })
 
@@ -52,11 +51,11 @@ onMounted(async () => {
         phone: employee.phone ?? '',
         department_id: employee.department_id,
         position: employee.position ?? '',
-        hire_date: toDate(employee.hire_date),
+        hire_date: toQuasarDate(employee.hire_date),
         avatar: employee.avatar ?? '',
       })
     } catch (error) {
-      toast.add({ severity: 'error', summary: apiMessage(error, t('employees.notFound')), life: 4000 })
+      $q.notify({ type: 'negative', message: apiMessage(error, t('employees.notFound')) })
       await router.push({ name: 'employees' })
     } finally {
       loading.value = false
@@ -67,20 +66,20 @@ onMounted(async () => {
 async function submit(): Promise<void> {
   if (!validate()) return
 
-  const payload = { ...form, hire_date: toDateString(form.hire_date) }
+  const payload = { ...form, hire_date: fromQuasarDate(form.hire_date) }
 
   try {
     if (isEdit.value && employeeId.value) {
       await employees.update(employeeId.value, payload)
-      toast.add({ severity: 'success', summary: t('common.saved'), life: 3000 })
+      $q.notify({ type: 'positive', message: t('common.saved') })
       await router.push({ name: 'employees.show', params: { id: employeeId.value } })
     } else {
       const created = await employees.create(payload)
-      toast.add({ severity: 'success', summary: t('common.created'), life: 3000 })
+      $q.notify({ type: 'positive', message: t('common.created') })
       await router.push({ name: 'employees.show', params: { id: created.id } })
     }
   } catch (error) {
-    toast.add({ severity: 'error', summary: apiMessage(error), life: 4000 })
+    $q.notify({ type: 'negative', message: apiMessage(error) })
   }
 }
 </script>
@@ -92,95 +91,87 @@ async function submit(): Promise<void> {
         <h1 class="wf-page__title">{{ isEdit ? t('employees.editTitle') : t('employees.createTitle') }}</h1>
         <p class="wf-page__subtitle">{{ t('employees.subtitle') }}</p>
       </div>
-      <Button icon="pi pi-arrow-left" :label="t('common.back')" severity="secondary" outlined @click="router.back()" />
+      <q-btn flat no-caps icon="arrow_back" :label="t('common.back')" @click="router.back()" />
     </div>
 
     <div class="wf-card form">
-      <div v-if="loading" class="form__loading"><ProgressSpinner style="width: 42px; height: 42px" /></div>
+      <q-inner-loading :showing="loading"><q-spinner size="42px" color="primary" /></q-inner-loading>
 
-      <form v-else @submit.prevent="submit">
+      <q-form v-if="!loading" @submit.prevent="submit">
         <div class="form__grid">
-          <div class="wf-field">
-            <label for="first_name" class="wf-field__label">{{ t('employees.firstName') }}</label>
-            <InputText
-              id="first_name"
-              v-model="form.first_name"
-              :invalid="Boolean(errors.first_name)"
-              fluid
-              @blur="validateField('first_name')"
-            />
-            <small v-if="errors.first_name" class="wf-field__error">{{ errors.first_name }}</small>
-          </div>
+          <q-input
+            v-model="form.first_name"
+            outlined
+            :label="t('employees.firstName')"
+            :error="Boolean(errors.first_name)"
+            :error-message="errors.first_name"
+            @blur="validateField('first_name')"
+          />
 
-          <div class="wf-field">
-            <label for="last_name" class="wf-field__label">{{ t('employees.lastName') }}</label>
-            <InputText
-              id="last_name"
-              v-model="form.last_name"
-              :invalid="Boolean(errors.last_name)"
-              fluid
-              @blur="validateField('last_name')"
-            />
-            <small v-if="errors.last_name" class="wf-field__error">{{ errors.last_name }}</small>
-          </div>
+          <q-input
+            v-model="form.last_name"
+            outlined
+            :label="t('employees.lastName')"
+            :error="Boolean(errors.last_name)"
+            :error-message="errors.last_name"
+            @blur="validateField('last_name')"
+          />
 
-          <div class="wf-field">
-            <label for="email" class="wf-field__label">{{ t('employees.email') }}</label>
-            <InputText
-              id="email"
-              v-model="form.email"
-              type="email"
-              :invalid="Boolean(errors.email)"
-              fluid
-              @blur="validateField('email')"
-            />
-            <small v-if="errors.email" class="wf-field__error">{{ errors.email }}</small>
-          </div>
+          <q-input
+            v-model="form.email"
+            outlined
+            type="email"
+            :label="t('employees.email')"
+            :error="Boolean(errors.email)"
+            :error-message="errors.email"
+            @blur="validateField('email')"
+          />
 
-          <div class="wf-field">
-            <label for="phone" class="wf-field__label">{{ t('employees.phone') }}</label>
-            <InputText id="phone" v-model="form.phone" placeholder="+7 700 000 00 00" fluid />
-          </div>
+          <q-input v-model="form.phone" outlined :label="t('employees.phone')" placeholder="+7 700 000 00 00" />
 
-          <div class="wf-field">
-            <label for="department" class="wf-field__label">{{ t('employees.department') }}</label>
-            <Select
-              id="department"
-              v-model="form.department_id"
-              :options="departments.options"
-              option-label="name"
-              option-value="id"
-              :placeholder="t('employees.noDepartment')"
-              show-clear
-              fluid
-            />
-          </div>
+          <q-select
+            v-model="form.department_id"
+            :options="departments.options"
+            option-label="name"
+            option-value="id"
+            emit-value
+            map-options
+            clearable
+            outlined
+            :label="t('employees.department')"
+          />
 
-          <div class="wf-field">
-            <label for="position" class="wf-field__label">{{ t('employees.position') }}</label>
-            <InputText id="position" v-model="form.position" fluid />
-          </div>
+          <q-input v-model="form.position" outlined :label="t('employees.position')" />
 
-          <div class="wf-field">
-            <label for="hire_date" class="wf-field__label">{{ t('employees.hireDate') }}</label>
-            <DatePicker id="hire_date" v-model="form.hire_date" date-format="dd.mm.yy" show-icon fluid />
-          </div>
+          <q-input v-model="form.hire_date" outlined :label="t('employees.hireDate')" mask="####/##/##" readonly>
+            <template #append>
+              <q-icon name="event" class="cursor-pointer">
+                <q-popup-proxy cover transition-show="scale" transition-hide="scale">
+                  <q-date v-model="form.hire_date" minimal>
+                    <div class="row items-center justify-end">
+                      <q-btn v-close-popup flat no-caps color="primary" :label="t('common.cancel')" />
+                    </div>
+                  </q-date>
+                </q-popup-proxy>
+              </q-icon>
+            </template>
+          </q-input>
 
-          <div class="wf-field">
-            <label for="avatar" class="wf-field__label">{{ t('employees.avatar') }}</label>
-            <InputText id="avatar" v-model="form.avatar" placeholder="https://…" fluid />
-          </div>
+          <q-input v-model="form.avatar" outlined :label="t('employees.avatar')" placeholder="https://…" />
         </div>
 
         <div class="form__actions">
-          <Button :label="t('common.cancel')" severity="secondary" outlined @click="router.back()" />
-          <Button
+          <q-btn flat no-caps :label="t('common.cancel')" @click="router.back()" />
+          <q-btn
             type="submit"
+            color="primary"
+            unelevated
+            no-caps
             :label="isEdit ? t('common.save') : t('common.create')"
             :loading="employees.saving"
           />
         </div>
-      </form>
+      </q-form>
     </div>
   </div>
 </template>
@@ -189,24 +180,20 @@ async function submit(): Promise<void> {
 .form {
   padding: 22px;
   max-width: 880px;
-}
-
-.form__loading {
-  display: grid;
-  place-items: center;
-  min-height: 260px;
+  position: relative;
+  min-height: 200px;
 }
 
 .form__grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 0 20px;
+  gap: 18px 20px;
 }
 
 .form__actions {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
-  margin-top: 12px;
+  margin-top: 22px;
 }
 </style>

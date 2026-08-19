@@ -14,8 +14,11 @@ const auth = useAuthStore()
     <h1 class="error-page__title">{{ t('errors.notFound') }}</h1>
     <p class="error-page__text wf-muted">{{ t('errors.notFoundText') }}</p>
     <div class="error-page__actions">
-      <Button :label="t('errors.goBack')" severity="secondary" outlined @click="router.back()" />
-      <Button
+      <q-btn flat no-caps :label="t('errors.goBack')" @click="router.back()" />
+      <q-btn
+        color="primary"
+        unelevated
+        no-caps
         :label="auth.isAuthenticated ? t('errors.goHome') : t('auth.signIn')"
         @click="router.push({ name: auth.isAuthenticated ? 'dashboard' : 'login' })"
       />
@@ -45,7 +48,7 @@ const auth = useAuthStore()
   color: transparent;
 
   &--404 {
-    background: linear-gradient(120deg, var(--p-primary-color), var(--p-violet-500));
+    background: linear-gradient(120deg, #4f46e5, #7c3aed);
   }
 }
 

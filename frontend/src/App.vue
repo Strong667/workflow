@@ -2,23 +2,21 @@
 import { watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
-import { usePrimeVue } from 'primevue/config'
-import { PRIME_LOCALES } from '@/plugins/prime-locales'
+import { useQuasar } from 'quasar'
+import { loadQuasarLang } from '@/quasar-langs'
 import { useUiStore } from '@/stores/ui'
 
 const ui = useUiStore()
 const route = useRoute()
 const { t } = useI18n()
-const primevue = usePrimeVue()
+const $q = useQuasar()
 
-// Подписи внутри компонентов PrimeVue переключаются вслед за языком интерфейса.
+// Подписи внутри компонентов Quasar переключаются вслед за языком интерфейса.
 watch(
   () => ui.locale,
-  (locale) => {
-    // Свои подписи кладём поверх дефолтных, чтобы не потерять остальные ключи.
-    Object.assign(primevue.config.locale ?? {}, PRIME_LOCALES[locale])
+  async (locale) => {
+    $q.lang.set(await loadQuasarLang(locale))
   },
-  { immediate: true },
 )
 
 watch(
@@ -37,7 +35,4 @@ watch(
       <component :is="Component" />
     </transition>
   </router-view>
-
-  <Toast position="top-right" />
-  <ConfirmDialog />
 </template>

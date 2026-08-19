@@ -13,10 +13,10 @@ const auth = useAuthStore()
     <div class="error-page__code error-page__code--403">403</div>
     <h1 class="error-page__title">{{ t('errors.forbidden') }}</h1>
     <p class="error-page__text wf-muted">{{ t('errors.forbiddenText') }}</p>
-    <Tag v-if="auth.role" :value="t(`roles.${auth.role}`)" severity="secondary" rounded />
+    <q-chip v-if="auth.role" dense square outline color="primary" :label="t(`roles.${auth.role}`)" />
     <div class="error-page__actions">
-      <Button :label="t('errors.goBack')" severity="secondary" outlined @click="router.back()" />
-      <Button :label="t('errors.goHome')" @click="router.push({ name: 'dashboard' })" />
+      <q-btn flat no-caps :label="t('errors.goBack')" @click="router.back()" />
+      <q-btn color="primary" unelevated no-caps :label="t('errors.goHome')" @click="router.push({ name: 'dashboard' })" />
     </div>
   </div>
 </template>
@@ -43,7 +43,7 @@ const auth = useAuthStore()
   color: transparent;
 
   &--403 {
-    background: linear-gradient(120deg, var(--p-red-500), var(--p-orange-500));
+    background: linear-gradient(120deg, #ef4444, #f97316);
   }
 }
 

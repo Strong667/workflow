@@ -1,15 +1,14 @@
 <script setup lang="ts">
 import { reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import Password from 'primevue/password'
-import { useToast } from 'primevue/usetoast'
+import { useQuasar } from 'quasar'
 import { authApi } from '@/api'
 import { apiMessage } from '@/api/client'
 import { rules, useValidation } from '@/composables/useValidation'
 import { useAuthStore } from '@/stores/auth'
 
 const { t } = useI18n()
-const toast = useToast()
+const $q = useQuasar()
 const auth = useAuthStore()
 
 const savingProfile = ref(false)
@@ -44,9 +43,9 @@ async function saveProfile(): Promise<void> {
   savingProfile.value = true
   try {
     auth.setUser(await authApi.updateProfile(profile))
-    toast.add({ severity: 'success', summary: t('common.saved'), life: 3000 })
+    $q.notify({ type: 'positive', message: t('common.saved') })
   } catch (error) {
-    toast.add({ severity: 'error', summary: apiMessage(error), life: 4000 })
+    $q.notify({ type: 'negative', message: apiMessage(error) })
   } finally {
     savingProfile.value = false
   }
@@ -58,11 +57,11 @@ async function savePassword(): Promise<void> {
   savingPassword.value = true
   try {
     await authApi.updateProfile(password)
-    toast.add({ severity: 'success', summary: t('profile.passwordUpdated'), life: 3000 })
+    $q.notify({ type: 'positive', message: t('profile.passwordUpdated') })
     Object.assign(password, { current_password: '', password: '', password_confirmation: '' })
     passwordForm.clear()
   } catch (error) {
-    toast.add({ severity: 'error', summary: apiMessage(error), life: 4000 })
+    $q.notify({ type: 'negative', message: apiMessage(error) })
   } finally {
     savingPassword.value = false
   }
@@ -80,104 +79,70 @@ async function savePassword(): Promise<void> {
 
     <div class="wf-grid profile-grid">
       <section class="wf-card panel panel--identity">
-        <Avatar
-          :image="auth.user?.avatar ?? undefined"
-          :label="auth.user?.avatar ? undefined : auth.initials"
-          shape="circle"
-          size="xlarge"
-        />
+        <q-avatar size="82px" color="primary" text-color="white" class="identity__avatar">
+          <img v-if="auth.user?.avatar" :src="auth.user.avatar" alt="" />
+          <template v-else>{{ auth.initials }}</template>
+        </q-avatar>
         <h2 class="identity__name">{{ auth.user?.name }}</h2>
         <p class="wf-muted identity__email">{{ auth.user?.email }}</p>
-        <Tag v-if="auth.role" :value="t(`roles.${auth.role}`)" severity="secondary" rounded />
+        <q-chip v-if="auth.role" dense square outline color="primary" :label="t(`roles.${auth.role}`)" />
       </section>
 
       <section class="wf-card panel">
         <h3 class="panel__title">{{ t('profile.title') }}</h3>
-        <form @submit.prevent="saveProfile">
-          <div class="wf-field">
-            <label for="name" class="wf-field__label">{{ t('profile.name') }}</label>
-            <InputText
-              id="name"
-              v-model="profile.name"
-              :invalid="Boolean(profileForm.errors.name)"
-              fluid
-              @blur="profileForm.validateField('name')"
-            />
-            <small v-if="profileForm.errors.name" class="wf-field__error">{{ profileForm.errors.name }}</small>
-          </div>
-
-          <div class="wf-field">
-            <label for="profile-email" class="wf-field__label">{{ t('profile.email') }}</label>
-            <InputText
-              id="profile-email"
-              v-model="profile.email"
-              type="email"
-              :invalid="Boolean(profileForm.errors.email)"
-              fluid
-              @blur="profileForm.validateField('email')"
-            />
-            <small v-if="profileForm.errors.email" class="wf-field__error">{{ profileForm.errors.email }}</small>
-          </div>
-
-          <div class="wf-field">
-            <label for="profile-avatar" class="wf-field__label">{{ t('profile.avatar') }}</label>
-            <InputText id="profile-avatar" v-model="profile.avatar" placeholder="https://…" fluid />
-          </div>
-
-          <Button type="submit" :label="t('common.save')" :loading="savingProfile" />
-        </form>
+        <q-form class="q-gutter-md" @submit.prevent="saveProfile">
+          <q-input
+            v-model="profile.name"
+            outlined
+            :label="t('profile.name')"
+            :error="Boolean(profileForm.errors.name)"
+            :error-message="profileForm.errors.name"
+            @blur="profileForm.validateField('name')"
+          />
+          <q-input
+            v-model="profile.email"
+            outlined
+            type="email"
+            :label="t('profile.email')"
+            :error="Boolean(profileForm.errors.email)"
+            :error-message="profileForm.errors.email"
+            @blur="profileForm.validateField('email')"
+          />
+          <q-input v-model="profile.avatar" outlined :label="t('profile.avatar')" placeholder="https://…" />
+          <q-btn type="submit" color="primary" unelevated no-caps :label="t('common.save')" :loading="savingProfile" />
+        </q-form>
       </section>
 
       <section class="wf-card panel">
         <h3 class="panel__title">{{ t('profile.security') }}</h3>
-        <form @submit.prevent="savePassword">
-          <div class="wf-field">
-            <label for="current-password" class="wf-field__label">{{ t('profile.currentPassword') }}</label>
-            <Password
-              id="current-password"
-              v-model="password.current_password"
-              :feedback="false"
-              toggle-mask
-              :invalid="Boolean(passwordForm.errors.current_password)"
-              fluid
-            />
-            <small v-if="passwordForm.errors.current_password" class="wf-field__error">
-              {{ passwordForm.errors.current_password }}
-            </small>
-          </div>
-
-          <div class="wf-field">
-            <label for="new-password" class="wf-field__label">{{ t('profile.newPassword') }}</label>
-            <Password
-              id="new-password"
-              v-model="password.password"
-              toggle-mask
-              :invalid="Boolean(passwordForm.errors.password)"
-              fluid
-            />
-            <small v-if="passwordForm.errors.password" class="wf-field__error">
-              {{ passwordForm.errors.password }}
-            </small>
-          </div>
-
-          <div class="wf-field">
-            <label for="confirm-password" class="wf-field__label">{{ t('profile.confirmPassword') }}</label>
-            <Password
-              id="confirm-password"
-              v-model="password.password_confirmation"
-              :feedback="false"
-              toggle-mask
-              :invalid="Boolean(passwordForm.errors.password_confirmation)"
-              fluid
-              @blur="passwordForm.validateField('password_confirmation')"
-            />
-            <small v-if="passwordForm.errors.password_confirmation" class="wf-field__error">
-              {{ passwordForm.errors.password_confirmation }}
-            </small>
-          </div>
-
-          <Button type="submit" :label="t('common.save')" severity="secondary" outlined :loading="savingPassword" />
-        </form>
+        <q-form class="q-gutter-md" @submit.prevent="savePassword">
+          <q-input
+            v-model="password.current_password"
+            outlined
+            type="password"
+            :label="t('profile.currentPassword')"
+            :error="Boolean(passwordForm.errors.current_password)"
+            :error-message="passwordForm.errors.current_password"
+          />
+          <q-input
+            v-model="password.password"
+            outlined
+            type="password"
+            :label="t('profile.newPassword')"
+            :error="Boolean(passwordForm.errors.password)"
+            :error-message="passwordForm.errors.password"
+          />
+          <q-input
+            v-model="password.password_confirmation"
+            outlined
+            type="password"
+            :label="t('profile.confirmPassword')"
+            :error="Boolean(passwordForm.errors.password_confirmation)"
+            :error-message="passwordForm.errors.password_confirmation"
+            @blur="passwordForm.validateField('password_confirmation')"
+          />
+          <q-btn type="submit" outline no-caps color="primary" :label="t('common.save')" :loading="savingPassword" />
+        </q-form>
       </section>
     </div>
   </div>
@@ -206,6 +171,10 @@ async function savePassword(): Promise<void> {
   margin: 0 0 18px;
   font-size: 14px;
   font-weight: 650;
+}
+
+.identity__avatar {
+  font-size: 26px;
 }
 
 .identity__name {

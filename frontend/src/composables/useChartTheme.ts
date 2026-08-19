@@ -1,4 +1,4 @@
-import { ref, watch } from 'vue'
+import { computed } from 'vue'
 import { useUiStore } from '@/stores/ui'
 
 interface ChartTokens {
@@ -6,50 +6,30 @@ interface ChartTokens {
   success: string
   warn: string
   danger: string
-  neutral: string
   text: string
   muted: string
   grid: string
 }
 
-/**
- * PrimeVue 5 отдаёт токены как `light-dark(#fff, #000)` — Chart.js такую
- * запись не понимает, поэтому просим браузер вычислить итоговый цвет.
- */
-function resolveColor(variable: string, fallback: string): string {
-  const probe = document.createElement('span')
-  probe.style.cssText = `position:absolute;visibility:hidden;color:var(${variable},${fallback})`
-  document.body.appendChild(probe)
-  const color = getComputedStyle(probe).color
-  probe.remove()
-  return color || fallback
+const LIGHT: ChartTokens = {
+  primary: '#4f46e5',
+  success: '#22c55e',
+  warn: '#f59e0b',
+  danger: '#ef4444',
+  text: '#1f2333',
+  muted: '#7b8194',
+  grid: '#e4e6ee',
 }
 
-function readTokens(): ChartTokens {
-  return {
-    primary: resolveColor('--p-primary-500', '#6366f1'),
-    success: resolveColor('--p-green-500', '#22c55e'),
-    warn: resolveColor('--p-amber-500', '#f59e0b'),
-    danger: resolveColor('--p-red-500', '#ef4444'),
-    neutral: resolveColor('--p-surface-400', '#94a3b8'),
-    text: resolveColor('--p-text-color', '#1f2937'),
-    muted: resolveColor('--p-text-muted-color', '#6b7280'),
-    grid: resolveColor('--p-content-border-color', '#e5e7eb'),
-  }
+const DARK: ChartTokens = {
+  ...LIGHT,
+  text: '#e8e8ec',
+  muted: '#9b9fae',
+  grid: '#2a2a30',
 }
 
-/** Токены темы значениями; пересчитываются при переключении светлой/тёмной. */
+/** Chart.js рисует на canvas и не понимает CSS-переменные — отдаём значения. */
 export function useChartTheme() {
   const ui = useUiStore()
-  const tokens = ref<ChartTokens>(readTokens())
-
-  watch(
-    () => ui.theme,
-    () => {
-      tokens.value = readTokens()
-    },
-    { flush: 'post' },
-  )
-
-  return tokens
+  return computed<ChartTokens>(() => (ui.theme === 'dark' ? DARK : LIGHT))
 }

@@ -1,10 +1,10 @@
 <script setup lang="ts">
-withDefaults(defineProps<{ text: string; icon?: string }>(), { icon: 'pi pi-inbox' })
+withDefaults(defineProps<{ text: string; icon?: string }>(), { icon: 'inbox' })
 </script>
 
 <template>
   <div class="empty">
-    <i :class="icon" class="empty__icon" />
+    <q-icon :name="icon" size="30px" class="empty__icon" />
     <p class="empty__text">{{ text }}</p>
     <slot />
   </div>
@@ -22,8 +22,7 @@ withDefaults(defineProps<{ text: string; icon?: string }>(), { icon: 'pi pi-inbo
 }
 
 .empty__icon {
-  font-size: 26px;
-  opacity: 0.55;
+  opacity: 0.5;
 }
 
 .empty__text {

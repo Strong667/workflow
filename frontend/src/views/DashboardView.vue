@@ -1,9 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import Chart from 'primevue/chart'
-import Timeline from 'primevue/timeline'
-import { useToast } from 'primevue/usetoast'
+import { useQuasar } from 'quasar'
+import BaseChart from '@/components/BaseChart.vue'
 import MeterList from '@/components/MeterList.vue'
 import StatCard from '@/components/StatCard.vue'
 import EmptyState from '@/components/EmptyState.vue'
@@ -14,9 +13,9 @@ import { formatDate, formatDateTime, useTaskMeta } from '@/composables/useTaskMe
 import type { DashboardStats, TaskPriority, TaskStatus } from '@/types'
 
 const { t } = useI18n()
-const toast = useToast()
+const $q = useQuasar()
 const tokens = useChartTheme()
-const { statusLabel, statusColor, priorityLabel, priorityColor, prioritySeverity } = useTaskMeta()
+const { statusLabel, statusColor, priorityLabel, priorityColor, priorityTone } = useTaskMeta()
 
 const stats = ref<DashboardStats | null>(null)
 const loading = ref(true)
@@ -124,7 +123,7 @@ onMounted(async () => {
   try {
     stats.value = await dashboardApi.stats()
   } catch (error) {
-    toast.add({ severity: 'error', summary: apiMessage(error), life: 4000 })
+    $q.notify({ type: 'negative', message: apiMessage(error) })
   } finally {
     loading.value = false
   }
@@ -138,36 +137,43 @@ onMounted(async () => {
         <h1 class="wf-page__title">{{ t('dashboard.title') }}</h1>
         <p class="wf-page__subtitle">{{ t('dashboard.subtitle') }}</p>
       </div>
-      <Button icon="pi pi-plus" :label="t('tasks.create')" @click="$router.push({ name: 'tasks.create' })" />
+      <q-btn
+        color="primary"
+        unelevated
+        no-caps
+        icon="add"
+        :label="t('tasks.create')"
+        @click="$router.push({ name: 'tasks.create' })"
+      />
     </div>
 
     <div class="wf-grid stats">
       <StatCard
         :label="t('dashboard.employees')"
         :value="stats?.totals.employees ?? 0"
-        icon="pi pi-users"
+        icon="groups"
         tone="primary"
         :loading="loading"
       />
       <StatCard
         :label="t('dashboard.departments')"
         :value="stats?.totals.departments ?? 0"
-        icon="pi pi-building"
-        tone="success"
+        icon="apartment"
+        tone="positive"
         :loading="loading"
       />
       <StatCard
         :label="t('dashboard.tasks')"
         :value="stats?.totals.tasks ?? 0"
-        icon="pi pi-list-check"
-        tone="warn"
+        icon="task_alt"
+        tone="warning"
         :loading="loading"
       />
       <StatCard
         :label="t('dashboard.overdue')"
         :value="stats?.totals.overdue ?? 0"
-        icon="pi pi-exclamation-triangle"
-        tone="danger"
+        icon="warning"
+        tone="negative"
         :loading="loading"
       />
     </div>
@@ -175,55 +181,65 @@ onMounted(async () => {
     <div class="wf-grid charts">
       <section class="wf-card panel panel--wide">
         <h3 class="panel__title">{{ t('dashboard.weekly') }}</h3>
-        <Skeleton v-if="loading" height="230px" />
-        <Chart v-else type="bar" :data="weeklyData" :options="barOptions" class="chart" />
+        <q-skeleton v-if="loading" height="230px" />
+        <BaseChart v-else type="bar" :data="weeklyData" :options="barOptions" />
       </section>
 
       <section class="wf-card panel">
         <h3 class="panel__title">{{ t('dashboard.tasksByStatus') }}</h3>
-        <Skeleton v-if="loading" height="230px" />
-        <Chart v-else type="doughnut" :data="statusData" :options="doughnutOptions" class="chart" />
+        <q-skeleton v-if="loading" height="230px" />
+        <BaseChart v-else type="doughnut" :data="statusData" :options="doughnutOptions" />
       </section>
 
       <section class="wf-card panel">
         <h3 class="panel__title">{{ t('dashboard.byDepartment') }}</h3>
-        <Skeleton v-if="loading" height="230px" />
-        <Chart v-else type="bar" :data="departmentData" :options="horizontalBarOptions" class="chart" />
+        <q-skeleton v-if="loading" height="230px" />
+        <BaseChart v-else type="bar" :data="departmentData" :options="horizontalBarOptions" />
       </section>
 
       <section class="wf-card panel">
         <h3 class="panel__title">{{ t('dashboard.tasksByPriority') }}</h3>
-        <Skeleton v-if="loading" height="80px" />
+        <q-skeleton v-if="loading" height="80px" />
         <MeterList v-else :items="priorityMeters" />
 
         <h3 class="panel__title panel__title--spaced">{{ t('dashboard.recentTasks') }}</h3>
-        <Skeleton v-if="loading" height="120px" />
-        <ul v-else-if="stats?.recent_tasks.length" class="feed">
-          <li v-for="task in stats.recent_tasks" :key="task.id" class="feed__item">
-            <div class="feed__main">
-              <router-link :to="{ name: 'tasks' }" class="feed__title">{{ task.title }}</router-link>
-              <span class="wf-muted feed__meta">
+        <q-skeleton v-if="loading" height="120px" />
+        <q-list v-else-if="stats?.recent_tasks.length" dense separator>
+          <q-item v-for="task in stats.recent_tasks" :key="task.id" class="feed__item">
+            <q-item-section>
+              <q-item-label class="feed__title">{{ task.title }}</q-item-label>
+              <q-item-label caption class="wf-muted">
                 {{ task.employee?.full_name ?? t('tasks.unassigned') }} · {{ formatDate(task.deadline) }}
-              </span>
-            </div>
-            <Tag :value="priorityLabel(task.priority)" :severity="prioritySeverity(task.priority)" rounded />
-          </li>
-        </ul>
+              </q-item-label>
+            </q-item-section>
+            <q-item-section side>
+              <q-chip
+                dense
+                square
+                :color="priorityTone(task.priority)"
+                text-color="white"
+                :label="priorityLabel(task.priority)"
+              />
+            </q-item-section>
+          </q-item>
+        </q-list>
         <EmptyState v-else :text="t('common.noData')" />
       </section>
 
       <section class="wf-card panel panel--wide">
         <h3 class="panel__title">{{ t('dashboard.recentActivity') }}</h3>
-        <Skeleton v-if="loading" height="200px" />
-        <Timeline v-else-if="stats?.recent_activity.length" :value="stats.recent_activity" class="timeline">
-          <template #opposite="{ item }">
-            <span class="wf-muted timeline__date">{{ formatDateTime(item.created_at) }}</span>
-          </template>
-          <template #content="{ item }">
-            <span class="feed__title">{{ item.description ?? item.action }}</span>
-            <span class="wf-muted"> — {{ item.user?.name ?? t('activity.system') }}</span>
-          </template>
-        </Timeline>
+        <q-skeleton v-if="loading" height="200px" />
+        <q-timeline v-else-if="stats?.recent_activity.length" color="primary" class="timeline">
+          <q-timeline-entry
+            v-for="log in stats.recent_activity"
+            :key="log.id"
+            :subtitle="formatDateTime(log.created_at)"
+            icon="bolt"
+          >
+            <span class="feed__title">{{ log.description ?? log.action }}</span>
+            <span class="wf-muted"> — {{ log.user?.name ?? t('activity.system') }}</span>
+          </q-timeline-entry>
+        </q-timeline>
         <EmptyState v-else :text="t('activity.empty')" />
       </section>
     </div>
@@ -258,51 +274,18 @@ onMounted(async () => {
   margin-top: 24px;
 }
 
-.chart {
-  height: 230px;
-}
-
-.feed {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
 .feed__item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.feed__main {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
+  padding-left: 0;
+  padding-right: 0;
 }
 
 .feed__title {
   font-size: 13px;
   font-weight: 550;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
-.feed__meta {
-  font-size: 11.5px;
-}
-
-.timeline__date {
-  font-size: 11.5px;
-  white-space: nowrap;
-}
-
-:deep(.p-timeline-event-opposite) {
-  flex: 0 0 auto;
+.timeline {
+  padding-left: 4px;
 }
 
 @media (max-width: 1100px) {
