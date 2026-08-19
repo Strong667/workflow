@@ -21,7 +21,7 @@ const stack = [
   'Pinia',
   'Vue Router',
   'Axios',
-  'PrimeVue 5',
+  'PrimeVue 4',
   'Chart.js',
   'Vue I18n',
   'Laravel 12',

@@ -5,7 +5,7 @@ CRM-система для управления сотрудниками, зад�
 
 ## Стек
 
-**Frontend:** Vue 3 (Composition API), TypeScript, Vite, Pinia, Vue Router, Axios, PrimeVue 5 + PrimeIcons, Chart.js, Vue I18n, VueUse
+**Frontend:** Vue 3 (Composition API), TypeScript, Vite, Pinia, Vue Router, Axios, PrimeVue 4 + PrimeIcons, Chart.js, Vue I18n, VueUse
 **Backend:** Laravel 12, PHP 8.4, tymon/jwt-auth, MySQL 8 (в dev-режиме — SQLite)
 
 ## Структура
@@ -86,15 +86,17 @@ FLUSH PRIVILEGES;
 
 ## UI-слой
 
-Интерфейс собран на **PrimeVue 5** с пресетом Aura и кастомным primary-цветом (индиго). Тёмная тема включается классом `.dark` на `<html>` — его ставит стор `ui`, PrimeVue настроен на `darkModeSelector: '.dark'`.
+Интерфейс собран на **PrimeVue 4.5.5** (MIT) с пресетом Aura и кастомным primary-цветом (индиго). Тёмная тема включается классом `.dark` на `<html>` — его ставит стор `ui`, PrimeVue настроен на `darkModeSelector: '.dark'`.
 
 Глобально зарегистрированы только лёгкие компоненты (`src/plugins/components.ts`). Тяжёлые — `DataTable`, `Chart`, `DatePicker`, `Dialog`, `Paginator`, `Password`, `Timeline` — импортируются локально в своих экранах, поэтому попадают в чанки соответствующих страниц: экран логина не тянет код таблиц и графиков.
 
 Подписи внутри компонентов PrimeVue (календарь, индикатор пароля, пустые списки) переведены в `src/plugins/prime-locales.ts` и переключаются вместе с языком интерфейса.
 
-### Лицензия PrimeVue
+### Почему версия 4, а не 5
 
-PrimeVue 5 распространяется под лицензией PrimeUI: бесплатная Community-лицензия покрывает частных лиц, студентов, НКО и компании с выручкой до $1 млн и штатом до 10 человек, но **требует регистрации ключа** — без него в консоль пишется предупреждение `PrimeUI license is not configured`. Если ключ не нужен, подойдёт PrimeVue 4.5.5 под MIT: все используемые компоненты в ней есть.
+PrimeVue 5 перешёл на лицензию PrimeUI: Community-тариф бесплатен для частных лиц, студентов, НКО и компаний с выручкой до $1 млн, но требует зарегистрированного ключа — без него в консоли висит предупреждение `PrimeUI license is not configured`. Версия 4.5.5 и `primeicons@7` остаются под MIT и содержат все нужные компоненты, поэтому проект зафиксирован на них.
+
+Если понадобится перейти на 5: `npm i primevue@5 @primeuix/themes@3 primeicons@8`, код менять не нужно — API совпадает, но потребуется ключ.
 
 ## REST API
 

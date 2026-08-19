@@ -177,7 +177,7 @@ function remove(employee: Employee): void {
           </template>
         </Column>
 
-        <Column :header="t('common.actions')" style="width: 140px" align-frozen="right">
+        <Column :header="t('common.actions')" style="width: 140px">
           <template #body="{ data }: { data: Employee }">
             <div class="row-actions">
               <Button
