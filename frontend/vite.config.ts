@@ -1,30 +1,16 @@
 import { fileURLToPath, URL } from 'node:url'
 import { defineConfig, loadEnv } from 'vite'
 import vue from '@vitejs/plugin-vue'
-import { quasar, transformAssetUrls } from '@quasar/vite-plugin'
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
 
   return {
-    plugins: [
-      vue({ template: { transformAssetUrls } }),
-      // Плагин сам подставляет импорты компонентов и директив Quasar,
-      // поэтому регистрировать их вручную не нужно.
-      quasar({ sassVariables: 'src/styles/quasar-variables.sass' }),
-    ],
+    plugins: [vue()],
     resolve: {
       alias: {
         '@': fileURLToPath(new URL('./src', import.meta.url)),
-      },
-    },
-    css: {
-      preprocessorOptions: {
-        // Quasar подставляет в свой index.sass импорт 'src/styles/quasar-variables.sass'
-        // относительно корня проекта — добавляем корень в пути поиска sass.
-        sass: { loadPaths: [fileURLToPath(new URL('.', import.meta.url))] },
-        scss: { loadPaths: [fileURLToPath(new URL('.', import.meta.url))] },
       },
     },
     server: {
@@ -51,12 +37,12 @@ export default defineConfig(({ mode }) => {
           manualChunks(id: string) {
             if (!id.includes('node_modules')) return undefined
             if (id.includes('chart.js') || id.includes('@kurkle')) return 'charts'
+            // PrimeVue не сводим в один чанк: тяжёлые компоненты подключены
+            // локально и должны уезжать в чанки своих страниц.
             if (id.includes('vue-i18n') || id.includes('@intlify')) return 'i18n'
             if (id.includes('vue-router') || id.includes('pinia') || id.includes('/@vue/') || id.includes('/vue/')) {
               return 'vue'
             }
-            // Quasar не сводим в один чанк: плагин подключает компоненты
-            // по факту использования, и они уезжают в чанки своих страниц.
             return undefined
           },
         },

@@ -1,19 +1,20 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { useDebounceFn } from '@vueuse/core'
-import { useQuasar } from 'quasar'
 import KanbanColumn from '@/components/KanbanColumn.vue'
 import { apiMessage } from '@/api/client'
 import { useTaskMeta } from '@/composables/useTaskMeta'
 import { useDepartmentsStore } from '@/stores/departments'
 import { useTasksStore, STATUSES } from '@/stores/tasks'
 import type { Task, TaskPriority, TaskStatus } from '@/types'
+import { useConfirmDelete, useNotify } from '@/ui/feedback'
 
 const { t } = useI18n()
 const router = useRouter()
-const $q = useQuasar()
+const confirmDelete = useConfirmDelete()
+const notify = useNotify()
 const tasks = useTasksStore()
 const departments = useDepartmentsStore()
 const { statusLabel, statusColor } = useTaskMeta()
@@ -21,16 +22,17 @@ const { statusLabel, statusColor } = useTaskMeta()
 const search = ref(tasks.filters.search ?? '')
 const dragged = ref<{ task: Task; from: TaskStatus } | null>(null)
 
-const priorityOptions = computed(() =>
-  (['low', 'medium', 'high'] as TaskPriority[]).map((value) => ({ value, label: t(`tasks.priorities.${value}`) })),
-)
+const priorityOptions = (['low', 'medium', 'high'] as TaskPriority[]).map((value) => ({
+  value,
+  label: t(`tasks.priorities.${value}`),
+}))
 
 const debouncedSearch = useDebounceFn((value: string) => {
   tasks.filters.search = value
   void tasks.fetchBoard()
 }, 400)
 
-watch(search, (value) => debouncedSearch(value ?? ''))
+watch(search, (value) => debouncedSearch(value))
 
 onMounted(async () => {
   await Promise.all([tasks.fetchBoard(), departments.fetchOptions()])
@@ -61,28 +63,22 @@ async function onDrop(payload: { status: TaskStatus; index: number }): Promise<v
   try {
     await tasks.move(current.task.id, current.from, payload.status, payload.index)
     if (current.from !== payload.status) {
-      $q.notify({ type: 'positive', message: t('tasks.moved') })
+      notify.success(t('tasks.moved'))
     }
   } catch (error) {
-    $q.notify({ type: 'negative', message: apiMessage(error) })
+    notify.error(apiMessage(error))
   }
 }
 
 function remove(task: Task): void {
-  $q.dialog({
-    title: t('common.confirm'),
-    message: t('tasks.deleteConfirm', { title: task.title }),
-    cancel: { label: t('common.cancel'), flat: true, noCaps: true },
-    ok: { label: t('common.delete'), color: 'negative', unelevated: true, noCaps: true },
-    persistent: true,
-  }).onOk(async () => {
-    try {
-      await tasks.remove(task.id)
-      $q.notify({ type: 'positive', message: t('common.deleted') })
-    } catch (error) {
-      $q.notify({ type: 'negative', message: apiMessage(error) })
-    }
-  })
+  confirmDelete(t('tasks.deleteConfirm', { title: task.title }), async () => {
+      try {
+        await tasks.remove(task.id)
+        notify.success(t('common.deleted'))
+      } catch (error) {
+        notify.error(apiMessage(error))
+      }
+    })
 }
 </script>
 
@@ -93,59 +89,38 @@ function remove(task: Task): void {
         <h1 class="wf-page__title">{{ t('tasks.title') }}</h1>
         <p class="wf-page__subtitle">{{ t('tasks.dragHint') }} · {{ t('common.total') }}: {{ tasks.totalCount }}</p>
       </div>
-      <q-btn
-        color="primary"
-        unelevated
-        no-caps
-        icon="add"
-        :label="t('tasks.create')"
-        @click="router.push({ name: 'tasks.create' })"
-      />
+      <Button icon="pi pi-plus" :label="t('tasks.create')" @click="router.push({ name: 'tasks.create' })" />
     </div>
 
     <div class="wf-card filters">
-      <q-input
-        v-model="search"
-        outlined
-        dense
-        clearable
-        :placeholder="t('tasks.searchPlaceholder')"
-        class="filters__search"
-      >
-        <template #prepend><q-icon name="search" /></template>
-      </q-input>
+      <IconField class="filters__search">
+        <InputIcon class="pi pi-search" />
+        <InputText v-model="search" :placeholder="t('tasks.searchPlaceholder')" fluid />
+      </IconField>
 
-      <q-select
+      <Select
         v-model="tasks.filters.priority"
         :options="priorityOptions"
         option-label="label"
         option-value="value"
-        emit-value
-        map-options
-        clearable
-        outlined
-        dense
-        :label="t('tasks.priority')"
+        :placeholder="t('tasks.priority')"
+        show-clear
         class="filters__select"
-        @update:model-value="applyFilter"
+        @change="applyFilter"
       />
 
-      <q-select
+      <Select
         v-model="tasks.filters.department_id"
         :options="departments.options"
         option-label="name"
         option-value="id"
-        emit-value
-        map-options
-        clearable
-        outlined
-        dense
-        :label="t('employees.department')"
+        :placeholder="t('employees.department')"
+        show-clear
         class="filters__select"
-        @update:model-value="applyFilter"
+        @change="applyFilter"
       />
 
-      <q-btn flat no-caps :label="t('common.reset')" @click="resetFilters" />
+      <Button :label="t('common.reset')" severity="secondary" text @click="resetFilters" />
     </div>
 
     <div class="board" :class="{ 'board--loading': tasks.loading }">
@@ -182,7 +157,7 @@ function remove(task: Task): void {
 }
 
 .filters__select {
-  width: 200px;
+  width: 190px;
 }
 
 .board {

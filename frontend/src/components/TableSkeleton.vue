@@ -5,7 +5,7 @@ withDefaults(defineProps<{ rows?: number; columns?: number }>(), { rows: 6, colu
 <template>
   <div class="skeleton">
     <div v-for="row in rows" :key="row" class="skeleton__row">
-      <q-skeleton v-for="column in columns" :key="column" type="text" class="skeleton__cell" />
+      <Skeleton v-for="column in columns" :key="column" height="0.9rem" class="skeleton__cell" />
     </div>
   </div>
 </template>
@@ -14,7 +14,7 @@ withDefaults(defineProps<{ rows?: number; columns?: number }>(), { rows: 6, colu
 .skeleton {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
   padding: 14px 0;
 }
 

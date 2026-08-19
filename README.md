@@ -5,7 +5,7 @@ CRM-система для управления сотрудниками, зад�
 
 ## Стек
 
-**Frontend:** Vue 3 (Composition API), TypeScript, Vite, Pinia, Vue Router, Axios, Quasar 2 + Material Icons, Chart.js, Vue I18n, VueUse
+**Frontend:** Vue 3 (Composition API), TypeScript, Vite, Pinia, Vue Router, Axios, PrimeVue 4 + PrimeIcons, Chart.js, Vue I18n, VueUse
 **Backend:** Laravel 12, PHP 8.4, tymon/jwt-auth, MySQL 8 (в dev-режиме — SQLite)
 
 ## Структура
@@ -86,13 +86,30 @@ FLUSH PRIVILEGES;
 
 ## UI-слой
 
-Интерфейс собран на **Quasar 2** (MIT), подключённом как плагин Vite (`@quasar/vite-plugin`) — а не через Quasar CLI, чтобы сохранить обычную структуру Vite-проекта, свои порты и прокси. Плагин сам подставляет импорты компонентов и директив, поэтому регистрировать их вручную не нужно, а в сборку попадает только использованное: `QTable`, `QSelect`, `QMenu`, `QPopupProxy` выезжают отдельными чанками.
+Интерфейс собран на **PrimeVue 4.5.5** (MIT) с пресетом Aura и фирменным индиго. Тёмная тема включается классом `.dark` на `<html>` — его ставит стор `ui`, PrimeVue настроен на `darkModeSelector: '.dark'`.
 
-Каркас — `QLayout` + `QDrawer` в mini-режиме (сворачивание сайдбара и мобильный оверлей работают средствами Quasar) и `QHeader`. Фирменная палитра задаётся в `src/styles/quasar-variables.sass`, тёмная тема — плагином `Dark`, синхронизированным со стором `ui`.
+Всё, что знает о библиотеке, лежит в `src/ui/` — экраны обращаются к PrimeVue только через этот каталог:
 
-Уведомления и подтверждения — плагины `Notify` и `Dialog`. Подписи внутри компонентов Quasar берутся из его языковых пакетов (`ru`, `en-US`, `kk`) и переключаются вместе с языком интерфейса. Графики — Chart.js через тонкую обёртку `BaseChart.vue`.
+| Файл | Отвечает за |
+| --- | --- |
+| `theme.ts` | пресет темы, фирменные цвета, конфигурация плагина |
+| `global-components.ts` | глобальная регистрация лёгких компонентов |
+| `lazy-components.ts` | реэкспорт тяжёлых компонентов для локальных импортов в экранах |
+| `locales.ts` | подписи внутри компонентов библиотеки для ru/en/kk |
+| `tokens.ts` | чтение значений токенов темы для Chart.js |
+| `feedback.ts` | `useNotify()` и `useConfirmDelete()` в терминах приложения |
+
+Тяжёлые компоненты (`DataTable`, `Chart`, `DatePicker`, `Dialog`, `Paginator`, `Password`, `Timeline`) не регистрируются глобально, а импортируются в своих экранах через `lazy-components.ts` и уезжают в чанки соответствующих страниц: экран логина не тянет код таблиц и графиков.
 
 Валидация форм — собственный композабл `useValidation` (~60 строк): в проекте четыре типа правил, отдельная библиотека под них избыточна.
+
+### Переход на PrimeVue 5
+
+Проект к нему готов: с `primevue@5` проходят и `vue-tsc`, и сборка, без правок в коде. Мешает только лицензия — с пятой версии PrimeVue распространяется по PrimeUI License и требует ключ даже на бесплатном Community-тарифе. Порядок обновления, регистрация ключа и список учтённых отличий — в [docs/PRIMEVUE-5.md](docs/PRIMEVUE-5.md).
+
+```bash
+npm run upgrade:primevue5     # и обратно: npm run downgrade:primevue4
+```
 
 
 ## REST API
@@ -144,6 +161,7 @@ Login · Dashboard · Сотрудники · Создание сотрудни�
 ```bash
 # frontend
 npm run dev        # дев-сервер на 5188
+npm run type-check # проверка типов
 npm run build      # прод-сборка (vue-tsc + vite build)
 npm run preview    # предпросмотр сборки на 5189
 

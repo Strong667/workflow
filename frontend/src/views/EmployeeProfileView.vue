@@ -2,21 +2,23 @@
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
-import { useQuasar, type QTableColumn } from 'quasar'
 import EmptyState from '@/components/EmptyState.vue'
 import { apiMessage } from '@/api/client'
 import { formatDate, useTaskMeta } from '@/composables/useTaskMeta'
 import { useAuthStore } from '@/stores/auth'
 import { useEmployeesStore } from '@/stores/employees'
 import type { Task } from '@/types'
+import { Column, DataTable } from '@/ui/lazy-components'
+import { useConfirmDelete, useNotify } from '@/ui/feedback'
 
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
-const $q = useQuasar()
+const confirmDelete = useConfirmDelete()
+const notify = useNotify()
 const auth = useAuthStore()
 const employees = useEmployeesStore()
-const { statusLabel, statusTone, priorityLabel, priorityTone } = useTaskMeta()
+const { statusLabel, statusSeverity, priorityLabel, prioritySeverity } = useTaskMeta()
 
 const loading = ref(true)
 const employee = computed(() => employees.current)
@@ -29,18 +31,11 @@ const details = computed(() => [
   { label: t('employees.department'), value: employee.value?.department?.name ?? t('employees.noDepartment') },
 ])
 
-const taskColumns = computed<QTableColumn<Task>[]>(() => [
-  { name: 'title', label: t('tasks.titleField'), field: 'title', align: 'left' },
-  { name: 'status', label: t('tasks.status'), field: 'status', align: 'left' },
-  { name: 'priority', label: t('tasks.priority'), field: 'priority', align: 'left' },
-  { name: 'deadline', label: t('tasks.deadline'), field: 'deadline', align: 'left' },
-])
-
 onMounted(async () => {
   try {
     await employees.fetchOne(Number(route.params.id))
   } catch (error) {
-    $q.notify({ type: 'negative', message: apiMessage(error, t('employees.notFound')) })
+    notify.error(apiMessage(error, t('employees.notFound')))
     await router.push({ name: 'employees' })
   } finally {
     loading.value = false
@@ -50,21 +45,15 @@ onMounted(async () => {
 function remove(): void {
   if (!employee.value) return
 
-  $q.dialog({
-    title: t('common.confirm'),
-    message: t('employees.deleteConfirm', { name: employee.value.full_name }),
-    cancel: { label: t('common.cancel'), flat: true, noCaps: true },
-    ok: { label: t('common.delete'), color: 'negative', unelevated: true, noCaps: true },
-    persistent: true,
-  }).onOk(async () => {
-    try {
-      await employees.remove(employee.value!.id)
-      $q.notify({ type: 'positive', message: t('common.deleted') })
-      await router.push({ name: 'employees' })
-    } catch (error) {
-      $q.notify({ type: 'negative', message: apiMessage(error) })
-    }
-  })
+  confirmDelete(t('employees.deleteConfirm', { name: employee.value.full_name }), async () => {
+      try {
+        await employees.remove(employee.value!.id)
+        notify.success(t('common.deleted'))
+        await router.push({ name: 'employees' })
+      } catch (error) {
+        notify.error(apiMessage(error))
+      }
+    })
 }
 </script>
 
@@ -76,73 +65,73 @@ function remove(): void {
         <p class="wf-page__subtitle">{{ employee?.email }}</p>
       </div>
       <div class="wf-toolbar">
-        <q-btn flat no-caps icon="arrow_back" :label="t('common.back')" @click="router.push({ name: 'employees' })" />
-        <q-btn
+        <Button
+          icon="pi pi-arrow-left"
+          :label="t('common.back')"
+          severity="secondary"
+          outlined
+          @click="router.push({ name: 'employees' })"
+        />
+        <Button
           v-if="canManage"
-          outline
-          no-caps
-          color="primary"
-          icon="edit"
+          icon="pi pi-pencil"
           :label="t('common.edit')"
+          severity="secondary"
+          outlined
           @click="router.push({ name: 'employees.edit', params: { id: route.params.id } })"
         />
-        <q-btn v-if="canManage" outline no-caps color="negative" icon="delete" :label="t('common.delete')" @click="remove" />
+        <Button v-if="canManage" icon="pi pi-trash" :label="t('common.delete')" severity="danger" outlined @click="remove" />
       </div>
     </div>
 
-    <div v-if="loading" class="wf-card loading"><q-spinner size="42px" color="primary" /></div>
+    <div v-if="loading" class="wf-card loading"><ProgressSpinner style="width: 42px; height: 42px" /></div>
 
     <div v-else-if="employee" class="profile">
       <section class="wf-card profile__card">
-        <q-avatar size="82px" color="primary" text-color="white" class="profile__avatar">
-          <img v-if="employee.avatar" :src="employee.avatar" alt="" />
-          <template v-else>{{ employee.first_name[0] }}{{ employee.last_name[0] }}</template>
-        </q-avatar>
+        <Avatar
+          :image="employee.avatar ?? undefined"
+          :label="employee.avatar ? undefined : `${employee.first_name[0]}${employee.last_name[0]}`"
+          shape="circle"
+          size="xlarge"
+        />
         <h2 class="profile__name">{{ employee.full_name }}</h2>
         <p class="wf-muted profile__position">{{ employee.position ?? '—' }}</p>
-        <q-chip v-if="employee.department" dense square outline color="primary" :label="employee.department.name" />
+        <Tag v-if="employee.department" :value="employee.department.name" severity="secondary" rounded />
 
-        <q-list separator class="details">
-          <q-item v-for="row in details" :key="row.label" class="details__row">
-            <q-item-section class="wf-muted">{{ row.label }}</q-item-section>
-            <q-item-section side class="details__value">{{ row.value }}</q-item-section>
-          </q-item>
-        </q-list>
+        <ul class="details">
+          <li v-for="row in details" :key="row.label" class="details__row">
+            <span class="wf-muted details__label">{{ row.label }}</span>
+            <span class="details__value">{{ row.value }}</span>
+          </li>
+        </ul>
       </section>
 
       <section class="wf-card profile__tasks">
         <h3 class="profile__tasks-title">
           {{ t('employees.tasksOf') }}
-          <q-badge outline color="grey-7" :label="employee.tasks?.length ?? 0" />
+          <Badge :value="employee.tasks?.length ?? 0" severity="secondary" />
         </h3>
 
-        <q-table
-          v-if="employee.tasks?.length"
-          :rows="employee.tasks"
-          :columns="taskColumns"
-          row-key="id"
-          flat
-          hide-pagination
-          :rows-per-page-options="[0]"
-        >
-          <template #body-cell-status="props">
-            <q-td :props="props">
-              <q-chip dense square :color="statusTone(props.row.status)" text-color="white" :label="statusLabel(props.row.status)" />
-            </q-td>
-          </template>
-          <template #body-cell-priority="props">
-            <q-td :props="props">
-              <q-chip dense square outline :color="priorityTone(props.row.priority)" :label="priorityLabel(props.row.priority)" />
-            </q-td>
-          </template>
-          <template #body-cell-deadline="props">
-            <q-td :props="props">
-              <span :class="{ 'text-negative': props.row.is_overdue }">{{ formatDate(props.row.deadline) }}</span>
-            </q-td>
-          </template>
-        </q-table>
+        <DataTable v-if="employee.tasks?.length" :value="employee.tasks" data-key="id">
+          <Column field="title" :header="t('tasks.titleField')" style="min-width: 220px" />
+          <Column :header="t('tasks.status')" style="width: 150px">
+            <template #body="{ data }: { data: Task }">
+              <Tag :value="statusLabel(data.status)" :severity="statusSeverity(data.status)" rounded />
+            </template>
+          </Column>
+          <Column :header="t('tasks.priority')" style="width: 140px">
+            <template #body="{ data }: { data: Task }">
+              <Tag :value="priorityLabel(data.priority)" :severity="prioritySeverity(data.priority)" rounded />
+            </template>
+          </Column>
+          <Column :header="t('tasks.deadline')" style="width: 130px">
+            <template #body="{ data }: { data: Task }">
+              <span :class="{ overdue: data.is_overdue }">{{ formatDate(data.deadline) }}</span>
+            </template>
+          </Column>
+        </DataTable>
 
-        <EmptyState v-else :text="t('tasks.empty')" icon="task_alt" />
+        <EmptyState v-else :text="t('tasks.empty')" icon="pi pi-list-check" />
       </section>
     </div>
   </div>
@@ -165,10 +154,6 @@ function remove(): void {
   gap: 8px;
 }
 
-.profile__avatar {
-  font-size: 26px;
-}
-
 .profile__name {
   margin: 6px 0 0;
   font-size: 18px;
@@ -182,20 +167,29 @@ function remove(): void {
 
 .details {
   width: 100%;
-  margin-top: 18px;
+  margin: 18px 0 0;
+  padding: 0;
+  list-style: none;
   text-align: left;
-  font-size: 13px;
 }
 
 .details__row {
-  padding-left: 0;
-  padding-right: 0;
-  min-height: 42px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--wf-border);
+  font-size: 13px;
+
+  &:last-child {
+    border-bottom: none;
+  }
 }
 
 .details__value {
   font-weight: 550;
   text-align: right;
+  word-break: break-word;
 }
 
 .profile__tasks {
@@ -215,6 +209,10 @@ function remove(): void {
   display: grid;
   place-items: center;
   min-height: 280px;
+}
+
+.overdue {
+  color: var(--p-red-500);
 }
 
 @media (max-width: 900px) {

@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { useDebounceFn } from '@vueuse/core'
-import { useQuasar, type QTableColumn, type QTableProps } from 'quasar'
 import EmptyState from '@/components/EmptyState.vue'
 import TableSkeleton from '@/components/TableSkeleton.vue'
 import { apiMessage } from '@/api/client'
@@ -12,10 +11,13 @@ import { useAuthStore } from '@/stores/auth'
 import { useDepartmentsStore } from '@/stores/departments'
 import { useEmployeesStore } from '@/stores/employees'
 import type { Employee } from '@/types'
+import { Column, DataTable, type DataTablePageEvent, type DataTableSortEvent } from '@/ui/lazy-components'
+import { useConfirmDelete, useNotify } from '@/ui/feedback'
 
 const { t } = useI18n()
 const router = useRouter()
-const $q = useQuasar()
+const confirmDelete = useConfirmDelete()
+const notify = useNotify()
 const auth = useAuthStore()
 const employees = useEmployeesStore()
 const departments = useDepartmentsStore()
@@ -23,88 +25,49 @@ const departments = useDepartmentsStore()
 const search = ref(employees.filters.search ?? '')
 const canManage = auth.can('admin', 'manager')
 
-const columns = computed<QTableColumn<Employee>[]>(() => [
-  { name: 'employee', label: t('employees.title'), field: 'full_name', align: 'left', style: 'min-width: 230px' },
-  { name: 'position', label: t('employees.position'), field: 'position', align: 'left', sortable: true },
-  { name: 'department', label: t('employees.department'), field: 'department_id', align: 'left' },
-  { name: 'phone', label: t('employees.phone'), field: 'phone', align: 'left' },
-  { name: 'hire_date', label: t('employees.hireDate'), field: 'hire_date', align: 'left', sortable: true },
-  { name: 'tasks', label: t('employees.tasksCount'), field: 'tasks_count', align: 'center' },
-  { name: 'actions', label: t('common.actions'), field: 'id', align: 'right' },
-])
-
-/**
- * q-table в серверном режиме ведёт собственное состояние пагинации,
- * поэтому связываем его через v-model и синхронизируем после каждой загрузки.
- */
-const pagination = ref({
-  page: employees.filters.page ?? 1,
-  rowsPerPage: employees.filters.per_page ?? 10,
-  rowsNumber: 0,
-  sortBy: '',
-  descending: true,
-})
-
-function syncPagination(): void {
-  pagination.value.rowsNumber = employees.total
-  pagination.value.page = employees.filters.page ?? 1
-}
-
 // Поиск отправляется на сервер не чаще раза в 400 мс.
-const debouncedSearch = useDebounceFn(async (value: string) => {
+const debouncedSearch = useDebounceFn((value: string) => {
   employees.setFilter('search', value)
-  await employees.fetch()
-  syncPagination()
+  void employees.fetch()
 }, 400)
 
 watch(search, (value) => debouncedSearch(value))
 
 onMounted(async () => {
   await Promise.all([employees.fetch(), departments.fetchOptions()])
-  syncPagination()
 })
 
-async function onDepartmentChange(value: number | null): Promise<void> {
+function onDepartmentChange(value: number | null): void {
   employees.setFilter('department_id', value)
-  await employees.fetch()
-  syncPagination()
+  void employees.fetch()
 }
 
-/** q-table отдаёт страницу и сортировку одним событием — переносим их в стор. */
-async function onRequest(props: Parameters<NonNullable<QTableProps['onRequest']>>[0]): Promise<void> {
-  const { page, sortBy, descending } = props.pagination
-  pagination.value = { ...pagination.value, page, sortBy: sortBy ?? '', descending }
-
-  employees.setFilter('sort', sortBy || 'created_at')
-  employees.setFilter('direction', descending ? 'desc' : 'asc')
-  employees.setFilter('page', page)
-  await employees.fetch()
-  syncPagination()
+function onPage(event: DataTablePageEvent): void {
+  employees.setFilter('page', event.page + 1)
+  void employees.fetch()
 }
 
-async function resetFilters(): Promise<void> {
+function onSort(event: DataTableSortEvent): void {
+  employees.setFilter('sort', (event.sortField as string) || 'created_at')
+  employees.setFilter('direction', event.sortOrder === 1 ? 'asc' : 'desc')
+  void employees.fetch()
+}
+
+function resetFilters(): void {
   search.value = ''
   employees.resetFilters()
-  pagination.value = { ...pagination.value, page: 1, sortBy: '', descending: true }
-  await employees.fetch()
-  syncPagination()
+  void employees.fetch()
 }
 
 function remove(employee: Employee): void {
-  $q.dialog({
-    title: t('common.confirm'),
-    message: t('employees.deleteConfirm', { name: employee.full_name }),
-    cancel: { label: t('common.cancel'), flat: true, noCaps: true },
-    ok: { label: t('common.delete'), color: 'negative', unelevated: true, noCaps: true },
-    persistent: true,
-  }).onOk(async () => {
-    try {
-      await employees.remove(employee.id)
-      $q.notify({ type: 'positive', message: t('common.deleted') })
-    } catch (error) {
-      $q.notify({ type: 'negative', message: apiMessage(error) })
-    }
-  })
+  confirmDelete(t('employees.deleteConfirm', { name: employee.full_name }), async () => {
+      try {
+        await employees.remove(employee.id)
+        notify.success(t('common.deleted'))
+      } catch (error) {
+        notify.error(apiMessage(error))
+      }
+    })
 }
 </script>
 
@@ -115,126 +78,128 @@ function remove(employee: Employee): void {
         <h1 class="wf-page__title">{{ t('employees.title') }}</h1>
         <p class="wf-page__subtitle">{{ t('employees.subtitle') }} · {{ t('common.total') }}: {{ employees.total }}</p>
       </div>
-      <q-btn
+      <Button
         v-if="canManage"
-        color="primary"
-        unelevated
-        no-caps
-        icon="add"
+        icon="pi pi-plus"
         :label="t('employees.create')"
         @click="router.push({ name: 'employees.create' })"
       />
     </div>
 
     <div class="wf-card filters">
-      <q-input
-        v-model="search"
-        outlined
-        dense
-        clearable
-        :placeholder="t('employees.searchPlaceholder')"
-        class="filters__search"
-      >
-        <template #prepend><q-icon name="search" /></template>
-      </q-input>
+      <IconField class="filters__search">
+        <InputIcon class="pi pi-search" />
+        <InputText v-model="search" :placeholder="t('employees.searchPlaceholder')" fluid />
+      </IconField>
 
-      <q-select
+      <Select
         :model-value="employees.filters.department_id"
         :options="departments.options"
         option-label="name"
         option-value="id"
-        emit-value
-        map-options
-        clearable
-        outlined
-        dense
-        :label="t('employees.filterDepartment')"
+        :placeholder="t('employees.filterDepartment')"
+        show-clear
         class="filters__select"
         @update:model-value="onDepartmentChange"
       />
 
-      <q-btn flat no-caps :label="t('common.reset')" @click="resetFilters" />
+      <Button :label="t('common.reset')" severity="secondary" text @click="resetFilters" />
     </div>
 
     <div class="wf-card table-wrap">
-      <TableSkeleton v-if="employees.loading && !employees.items.length" :rows="6" :columns="6" />
+      <TableSkeleton v-if="employees.loading" :rows="6" :columns="6" />
 
-      <q-table
+      <DataTable
         v-else-if="employees.items.length"
-        :rows="employees.items"
-        :columns="columns"
-        row-key="id"
-        flat
-        :loading="employees.loading"
-        v-model:pagination="pagination"
-        :rows-per-page-options="[10]"
-        @request="onRequest"
+        :value="employees.items"
+        lazy
+        paginator
+        removable-sort
+        :rows="employees.filters.per_page"
+        :total-records="employees.total"
+        :first="((employees.filters.page ?? 1) - 1) * (employees.filters.per_page ?? 10)"
+        data-key="id"
+        @page="onPage"
+        @sort="onSort"
       >
-        <template #body-cell-employee="props">
-          <q-td :props="props">
+        <Column :header="t('employees.title')" style="min-width: 230px">
+          <template #body="{ data }: { data: Employee }">
             <div class="person">
-              <q-avatar size="34px" color="primary" text-color="white">
-                <img v-if="props.row.avatar" :src="props.row.avatar" alt="" />
-                <template v-else>{{ props.row.first_name[0] }}{{ props.row.last_name[0] }}</template>
-              </q-avatar>
+              <Avatar
+                :image="data.avatar ?? undefined"
+                :label="data.avatar ? undefined : `${data.first_name[0]}${data.last_name[0]}`"
+                shape="circle"
+              />
               <div class="person__info">
-                <router-link :to="{ name: 'employees.show', params: { id: props.row.id } }" class="person__name">
-                  {{ props.row.full_name }}
+                <router-link :to="{ name: 'employees.show', params: { id: data.id } }" class="person__name">
+                  {{ data.full_name }}
                 </router-link>
-                <span class="wf-muted person__email">{{ props.row.email }}</span>
+                <span class="wf-muted person__email">{{ data.email }}</span>
               </div>
             </div>
-          </q-td>
-        </template>
+          </template>
+        </Column>
 
-        <template #body-cell-position="props">
-          <q-td :props="props">{{ props.row.position ?? '—' }}</q-td>
-        </template>
+        <Column field="position" :header="t('employees.position')" sortable style="min-width: 150px">
+          <template #body="{ data }: { data: Employee }">{{ data.position ?? '—' }}</template>
+        </Column>
 
-        <template #body-cell-department="props">
-          <q-td :props="props">
-            <q-chip v-if="props.row.department" dense square outline color="primary" :label="props.row.department.name" />
+        <Column :header="t('employees.department')" style="min-width: 140px">
+          <template #body="{ data }: { data: Employee }">
+            <Tag v-if="data.department" :value="data.department.name" severity="secondary" rounded />
             <span v-else class="wf-muted">{{ t('employees.noDepartment') }}</span>
-          </q-td>
-        </template>
+          </template>
+        </Column>
 
-        <template #body-cell-phone="props">
-          <q-td :props="props">{{ props.row.phone ?? '—' }}</q-td>
-        </template>
+        <Column :header="t('employees.phone')" style="min-width: 140px">
+          <template #body="{ data }: { data: Employee }">{{ data.phone ?? '—' }}</template>
+        </Column>
 
-        <template #body-cell-hire_date="props">
-          <q-td :props="props">{{ formatDate(props.row.hire_date) }}</q-td>
-        </template>
+        <Column field="hire_date" :header="t('employees.hireDate')" sortable style="min-width: 120px">
+          <template #body="{ data }: { data: Employee }">{{ formatDate(data.hire_date) }}</template>
+        </Column>
 
-        <template #body-cell-tasks="props">
-          <q-td :props="props">
-            <q-badge outline color="grey-7" :label="props.row.tasks_count ?? 0" />
-          </q-td>
-        </template>
+        <Column :header="t('employees.tasksCount')" style="width: 100px" align="center">
+          <template #body="{ data }: { data: Employee }">
+            <Badge :value="data.tasks_count ?? 0" severity="secondary" />
+          </template>
+        </Column>
 
-        <template #body-cell-actions="props">
-          <q-td :props="props">
-            <q-btn flat round dense icon="visibility" @click="router.push({ name: 'employees.show', params: { id: props.row.id } })">
-              <q-tooltip>{{ t('employees.profile') }}</q-tooltip>
-            </q-btn>
-            <q-btn
-              v-if="canManage"
-              flat
-              round
-              dense
-              icon="edit"
-              @click="router.push({ name: 'employees.edit', params: { id: props.row.id } })"
-            >
-              <q-tooltip>{{ t('common.edit') }}</q-tooltip>
-            </q-btn>
-            <q-btn v-if="canManage" flat round dense color="negative" icon="delete" @click="remove(props.row)">
-              <q-tooltip>{{ t('common.delete') }}</q-tooltip>
-            </q-btn>
-          </q-td>
-        </template>
-      </q-table>
+        <Column :header="t('common.actions')" style="width: 140px">
+          <template #body="{ data }: { data: Employee }">
+            <div class="row-actions">
+              <Button
+                icon="pi pi-eye"
+                severity="secondary"
+                text
+                rounded
+                v-tooltip.top="t('employees.profile')"
+                @click="router.push({ name: 'employees.show', params: { id: data.id } })"
+              />
+              <Button
+                v-if="canManage"
+                icon="pi pi-pencil"
+                severity="secondary"
+                text
+                rounded
+                v-tooltip.top="t('common.edit')"
+                @click="router.push({ name: 'employees.edit', params: { id: data.id } })"
+              />
+              <Button
+                v-if="canManage"
+                icon="pi pi-trash"
+                severity="danger"
+                text
+                rounded
+                v-tooltip.top="t('common.delete')"
+                @click="remove(data)"
+              />
+            </div>
+          </template>
+        </Column>
+      </DataTable>
 
-      <EmptyState v-else :text="t('employees.empty')" icon="groups" />
+      <EmptyState v-else :text="t('employees.empty')" icon="pi pi-users" />
     </div>
   </div>
 </template>
@@ -254,7 +219,7 @@ function remove(employee: Employee): void {
 }
 
 .filters__select {
-  width: 220px;
+  width: 210px;
 }
 
 .table-wrap {
@@ -277,10 +242,16 @@ function remove(employee: Employee): void {
 .person__name {
   font-weight: 600;
   font-size: 13.5px;
-  color: var(--q-primary);
+  color: var(--p-primary-color);
 }
 
 .person__email {
   font-size: 11.5px;
+}
+
+.row-actions {
+  display: flex;
+  gap: 2px;
+  justify-content: flex-end;
 }
 </style>

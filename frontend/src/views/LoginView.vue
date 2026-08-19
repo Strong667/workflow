@@ -2,20 +2,21 @@
 import { onMounted, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
-import { useQuasar } from 'quasar'
 import { SUPPORTED_LOCALES } from '@/locales'
 import { apiMessage } from '@/api/client'
 import { rules, useValidation } from '@/composables/useValidation'
 import { useAuthStore } from '@/stores/auth'
 import { useUiStore } from '@/stores/ui'
 import type { Locale } from '@/types'
+import { Password } from '@/ui/lazy-components'
+import { useNotify } from '@/ui/feedback'
 
 const { t } = useI18n()
 const auth = useAuthStore()
 const ui = useUiStore()
 const router = useRouter()
 const route = useRoute()
-const $q = useQuasar()
+const notify = useNotify()
 
 const form = reactive({ email: '', password: '' })
 
@@ -32,7 +33,7 @@ const demoAccounts = [
 
 onMounted(() => {
   if (route.query.expired) {
-    $q.notify({ type: 'warning', message: t('auth.sessionExpired') })
+    notify.warning(t('auth.sessionExpired'))
   }
 })
 
@@ -49,7 +50,7 @@ async function submit(): Promise<void> {
     const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : { name: 'dashboard' }
     await router.push(redirect as never)
   } catch (error) {
-    $q.notify({ type: 'negative', message: apiMessage(error, t('auth.invalid')) })
+    notify.error(apiMessage(error, t('auth.invalid')))
   }
 }
 </script>
@@ -63,31 +64,28 @@ async function submit(): Promise<void> {
       </div>
       <h1 class="login__headline">{{ t('auth.subtitle') }}</h1>
       <ul class="login__features">
-        <li><q-icon name="check_circle" size="20px" />{{ t('nav.employees') }}, {{ t('nav.departments') }}</li>
-        <li><q-icon name="check_circle" size="20px" />{{ t('tasks.subtitle') }}</li>
-        <li><q-icon name="check_circle" size="20px" />{{ t('nav.activity') }}</li>
+        <li><i class="pi pi-check-circle" />{{ t('nav.employees') }}, {{ t('nav.departments') }}</li>
+        <li><i class="pi pi-check-circle" />{{ t('tasks.subtitle') }}</li>
+        <li><i class="pi pi-check-circle" />{{ t('nav.activity') }}</li>
       </ul>
     </div>
 
     <div class="login__panel">
       <div class="login__panel-top">
-        <q-select
+        <Select
           :model-value="ui.locale"
           :options="SUPPORTED_LOCALES"
           option-label="label"
           option-value="value"
-          emit-value
-          map-options
-          dense
-          outlined
+          size="small"
           class="login__locale"
           @update:model-value="(value: Locale) => ui.applyLocale(value)"
         />
-        <q-btn
-          flat
-          round
-          dense
-          :icon="ui.theme === 'light' ? 'dark_mode' : 'light_mode'"
+        <Button
+          :icon="ui.theme === 'light' ? 'pi pi-moon' : 'pi pi-sun'"
+          severity="secondary"
+          text
+          rounded
           @click="ui.toggleTheme()"
         />
       </div>
@@ -96,59 +94,52 @@ async function submit(): Promise<void> {
         <h2 class="login__title">{{ t('auth.title') }}</h2>
         <p class="wf-muted login__subtitle">{{ t('common.appName') }}</p>
 
-        <q-form @submit.prevent="submit">
-          <q-input
-            v-model="form.email"
-            outlined
-            :label="t('auth.email')"
-            placeholder="admin@workflow.test"
-            autocomplete="username"
-            :error="Boolean(errors.email)"
-            :error-message="errors.email"
-            class="q-mb-md"
-            @blur="validateField('email')"
-          >
-            <template #prepend><q-icon name="mail" /></template>
-          </q-input>
+        <form @submit.prevent="submit">
+          <div class="wf-field">
+            <label for="email" class="wf-field__label">{{ t('auth.email') }}</label>
+            <IconField>
+              <InputIcon class="pi pi-envelope" />
+              <InputText
+                id="email"
+                v-model="form.email"
+                autocomplete="username"
+                placeholder="admin@workflow.test"
+                :invalid="Boolean(errors.email)"
+                fluid
+                @blur="validateField('email')"
+              />
+            </IconField>
+            <small v-if="errors.email" class="wf-field__error">{{ errors.email }}</small>
+          </div>
 
-          <q-input
-            v-model="form.password"
-            outlined
-            type="password"
-            :label="t('auth.password')"
-            autocomplete="current-password"
-            :error="Boolean(errors.password)"
-            :error-message="errors.password"
-            class="q-mb-lg"
-            @blur="validateField('password')"
-          >
-            <template #prepend><q-icon name="lock" /></template>
-          </q-input>
+          <div class="wf-field">
+            <label for="password" class="wf-field__label">{{ t('auth.password') }}</label>
+            <Password
+              id="password"
+              v-model="form.password"
+              :feedback="false"
+              toggle-mask
+              autocomplete="current-password"
+              :invalid="Boolean(errors.password)"
+              fluid
+              @blur="validateField('password')"
+            />
+            <small v-if="errors.password" class="wf-field__error">{{ errors.password }}</small>
+          </div>
 
-          <q-btn
-            type="submit"
-            color="primary"
-            unelevated
-            no-caps
-            size="md"
-            class="full-width"
-            :label="t('auth.signIn')"
-            :loading="auth.loading"
-          />
-        </q-form>
+          <Button type="submit" :label="t('auth.signIn')" :loading="auth.loading" class="login__submit" />
+        </form>
 
         <div class="login__demo">
           <span class="wf-muted">{{ t('auth.demo') }}</span>
           <div class="login__demo-list">
-            <q-btn
+            <Button
               v-for="account in demoAccounts"
               :key="account.email"
-              outline
-              no-caps
-              dense
-              size="sm"
-              color="primary"
               :label="t(`roles.${account.role}`)"
+              severity="secondary"
+              outlined
+              size="small"
               @click="useDemo(account.email)"
             />
           </div>
@@ -166,7 +157,7 @@ async function submit(): Promise<void> {
 }
 
 .login__aside {
-  background: linear-gradient(150deg, #4f46e5 0%, #7c3aed 55%, #2563eb 100%);
+  background: linear-gradient(150deg, var(--p-indigo-600) 0%, var(--p-violet-600) 55%, var(--p-blue-600) 100%);
   color: #fff;
   padding: 48px;
   display: flex;
@@ -234,7 +225,7 @@ async function submit(): Promise<void> {
 }
 
 .login__locale {
-  width: 132px;
+  width: 130px;
 }
 
 .login__form-wrap {
@@ -254,6 +245,10 @@ async function submit(): Promise<void> {
 .login__subtitle {
   margin: 6px 0 26px;
   font-size: 13px;
+}
+
+.login__submit {
+  width: 100%;
 }
 
 .login__demo {

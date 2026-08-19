@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useDebounceFn } from '@vueuse/core'
-import { useQuasar } from 'quasar'
 import EmptyState from '@/components/EmptyState.vue'
 import TableSkeleton from '@/components/TableSkeleton.vue'
 import { apiMessage } from '@/api/client'
@@ -10,9 +9,12 @@ import { rules, useValidation } from '@/composables/useValidation'
 import { useAuthStore } from '@/stores/auth'
 import { useDepartmentsStore } from '@/stores/departments'
 import type { Department } from '@/types'
+import { Dialog, Paginator, type MenuItem, type PageState } from '@/ui/lazy-components'
+import { useConfirmDelete, useNotify } from '@/ui/feedback'
 
 const { t } = useI18n()
-const $q = useQuasar()
+const confirmDelete = useConfirmDelete()
+const notify = useNotify()
 const auth = useAuthStore()
 const departments = useDepartmentsStore()
 
@@ -21,21 +23,34 @@ const search = ref('')
 const dialogVisible = ref(false)
 const editing = ref<Department | null>(null)
 const saving = ref(false)
+const menu = ref()
+const menuTarget = ref<Department | null>(null)
 
 const form = reactive({ name: '', description: '' })
-const { errors, validate, validateField, clear } = useValidation(form, {
+const { errors, validate, clear } = useValidation(form, {
   name: [rules.required(t('common.requiredField'))],
 })
+
+const menuItems = computed<MenuItem[]>(() => [
+  { label: t('common.edit'), icon: 'pi pi-pencil', command: () => menuTarget.value && openEdit(menuTarget.value) },
+  { separator: true },
+  { label: t('common.delete'), icon: 'pi pi-trash', command: () => menuTarget.value && remove(menuTarget.value) },
+])
 
 const debouncedSearch = useDebounceFn((value: string) => {
   void departments.fetch({ search: value, page: 1 })
 }, 400)
 
-watch(search, (value) => debouncedSearch(value ?? ''))
+watch(search, (value) => debouncedSearch(value))
 
 onMounted(() => {
   void departments.fetch()
 })
+
+function openMenu(event: Event, department: Department): void {
+  menuTarget.value = department
+  menu.value.toggle(event)
+}
 
 function openCreate(): void {
   editing.value = null
@@ -58,34 +73,28 @@ async function submit(): Promise<void> {
   try {
     if (editing.value) {
       await departments.update(editing.value.id, form)
-      $q.notify({ type: 'positive', message: t('common.saved') })
+      notify.success(t('common.saved'))
     } else {
       await departments.create(form)
-      $q.notify({ type: 'positive', message: t('common.created') })
+      notify.success(t('common.created'))
     }
     dialogVisible.value = false
   } catch (error) {
-    $q.notify({ type: 'negative', message: apiMessage(error) })
+    notify.error(apiMessage(error))
   } finally {
     saving.value = false
   }
 }
 
 function remove(department: Department): void {
-  $q.dialog({
-    title: t('common.confirm'),
-    message: t('departments.deleteConfirm', { name: department.name }),
-    cancel: { label: t('common.cancel'), flat: true, noCaps: true },
-    ok: { label: t('common.delete'), color: 'negative', unelevated: true, noCaps: true },
-    persistent: true,
-  }).onOk(async () => {
-    try {
-      await departments.remove(department.id)
-      $q.notify({ type: 'positive', message: t('common.deleted') })
-    } catch (error) {
-      $q.notify({ type: 'negative', message: apiMessage(error) })
-    }
-  })
+  confirmDelete(t('departments.deleteConfirm', { name: department.name }), async () => {
+      try {
+        await departments.remove(department.id)
+        notify.success(t('common.deleted'))
+      } catch (error) {
+        notify.error(apiMessage(error))
+      }
+    })
 }
 </script>
 
@@ -98,21 +107,14 @@ function remove(department: Department): void {
           {{ t('departments.subtitle') }} · {{ t('common.total') }}: {{ departments.total }}
         </p>
       </div>
-      <q-btn
-        v-if="canManage"
-        color="primary"
-        unelevated
-        no-caps
-        icon="add"
-        :label="t('departments.create')"
-        @click="openCreate"
-      />
+      <Button v-if="canManage" icon="pi pi-plus" :label="t('departments.create')" @click="openCreate" />
     </div>
 
     <div class="wf-card filters">
-      <q-input v-model="search" outlined dense clearable :placeholder="t('common.search')" class="filters__search">
-        <template #prepend><q-icon name="search" /></template>
-      </q-input>
+      <IconField class="filters__search">
+        <InputIcon class="pi pi-search" />
+        <InputText v-model="search" :placeholder="t('common.search')" fluid />
+      </IconField>
     </div>
 
     <TableSkeleton v-if="departments.loading" :rows="4" :columns="3" class="wf-card skeleton-card" />
@@ -120,72 +122,64 @@ function remove(department: Department): void {
     <div v-else-if="departments.items.length" class="wf-grid cards">
       <article v-for="department in departments.items" :key="department.id" class="wf-card department">
         <div class="department__head">
-          <div class="department__icon"><q-icon name="apartment" size="20px" /></div>
+          <div class="department__icon"><i class="pi pi-building" /></div>
           <h3 class="department__name">{{ department.name }}</h3>
-          <q-btn v-if="canManage" flat round dense size="sm" icon="more_vert" :aria-label="t('common.actions')">
-            <q-menu auto-close>
-              <q-list style="min-width: 150px">
-                <q-item clickable @click="openEdit(department)">
-                  <q-item-section avatar><q-icon name="edit" size="18px" /></q-item-section>
-                  <q-item-section>{{ t('common.edit') }}</q-item-section>
-                </q-item>
-                <q-separator />
-                <q-item clickable class="text-negative" @click="remove(department)">
-                  <q-item-section avatar><q-icon name="delete" size="18px" /></q-item-section>
-                  <q-item-section>{{ t('common.delete') }}</q-item-section>
-                </q-item>
-              </q-list>
-            </q-menu>
-          </q-btn>
+          <Button
+            v-if="canManage"
+            icon="pi pi-ellipsis-v"
+            severity="secondary"
+            text
+            rounded
+            size="small"
+            :aria-label="t('common.actions')"
+            @click="openMenu($event, department)"
+          />
         </div>
 
         <p class="department__description wf-muted">{{ department.description ?? '—' }}</p>
 
         <router-link :to="{ name: 'employees' }" class="department__footer">
-          <q-icon name="groups" size="16px" />
+          <i class="pi pi-users" />
           {{ t('departments.employeesCount') }}: <b>{{ department.employees_count ?? 0 }}</b>
         </router-link>
       </article>
     </div>
 
-    <EmptyState v-else :text="t('departments.empty')" icon="apartment" />
+    <EmptyState v-else :text="t('departments.empty')" icon="pi pi-building" />
 
-    <q-pagination
+    <Menu ref="menu" :model="menuItems" :popup="true" />
+
+    <Paginator
       v-if="departments.lastPage > 1"
-      :model-value="departments.page"
-      :max="departments.lastPage"
-      direction-links
-      boundary-numbers
-      color="primary"
       class="pagination"
-      @update:model-value="(page: number) => departments.fetch({ search, page })"
+      :rows="15"
+      :total-records="departments.total"
+      :first="(departments.page - 1) * 15"
+      @page="(event: PageState) => departments.fetch({ search, page: event.page + 1 })"
     />
 
-    <q-dialog v-model="dialogVisible">
-      <q-card class="dialog">
-        <q-card-section class="dialog__header">
-          <h3 class="dialog__title">{{ editing ? t('departments.editTitle') : t('departments.createTitle') }}</h3>
-        </q-card-section>
+    <Dialog
+      v-model:visible="dialogVisible"
+      :header="editing ? t('departments.editTitle') : t('departments.createTitle')"
+      modal
+      :style="{ width: '460px' }"
+    >
+      <div class="wf-field">
+        <label for="department-name" class="wf-field__label">{{ t('departments.name') }}</label>
+        <InputText id="department-name" v-model="form.name" :invalid="Boolean(errors.name)" fluid autofocus />
+        <small v-if="errors.name" class="wf-field__error">{{ errors.name }}</small>
+      </div>
 
-        <q-card-section class="q-gutter-md">
-          <q-input
-            v-model="form.name"
-            outlined
-            autofocus
-            :label="t('departments.name')"
-            :error="Boolean(errors.name)"
-            :error-message="errors.name"
-            @blur="validateField('name')"
-          />
-          <q-input v-model="form.description" outlined type="textarea" rows="3" :label="t('departments.description')" />
-        </q-card-section>
+      <div class="wf-field">
+        <label for="department-description" class="wf-field__label">{{ t('departments.description') }}</label>
+        <Textarea id="department-description" v-model="form.description" rows="3" fluid />
+      </div>
 
-        <q-card-actions align="right">
-          <q-btn v-close-popup flat no-caps :label="t('common.cancel')" />
-          <q-btn color="primary" unelevated no-caps :label="t('common.save')" :loading="saving" @click="submit" />
-        </q-card-actions>
-      </q-card>
-    </q-dialog>
+      <template #footer>
+        <Button :label="t('common.cancel')" severity="secondary" outlined @click="dialogVisible = false" />
+        <Button :label="t('common.save')" :loading="saving" @click="submit" />
+      </template>
+    </Dialog>
   </div>
 </template>
 
@@ -227,8 +221,8 @@ function remove(department: Department): void {
   border-radius: 10px;
   display: grid;
   place-items: center;
-  background: rgba(79, 70, 229, 0.14);
-  color: var(--q-primary);
+  background: color-mix(in srgb, var(--p-primary-color) 14%, transparent);
+  color: var(--p-primary-color);
 }
 
 .department__name {
@@ -259,20 +253,5 @@ function remove(department: Department): void {
 
 .pagination {
   align-self: flex-end;
-}
-
-.dialog {
-  width: 460px;
-  max-width: 90vw;
-}
-
-.dialog__header {
-  padding-bottom: 0;
-}
-
-.dialog__title {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 650;
 }
 </style>

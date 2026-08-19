@@ -1,34 +1,36 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
-import { Dialog, Loading, Notify, Quasar } from 'quasar'
-import '@quasar/extras/material-icons/material-icons.css'
-import 'quasar/src/css/index.sass'
+import PrimeVue from 'primevue/config'
+import ConfirmationService from 'primevue/confirmationservice'
+import ToastService from 'primevue/toastservice'
+import Tooltip from 'primevue/tooltip'
+import Ripple from 'primevue/ripple'
+import 'primeicons/primeicons.css'
 import '@/styles/main.scss'
 
 import App from './App.vue'
 import router from './router'
 import { getStoredLocale, i18n, setLocale } from './locales'
-import { loadQuasarLang } from './quasar-langs'
+import { primeVueOptions } from './ui/theme'
+import { registerComponents } from './ui/global-components'
 
 async function bootstrap(): Promise<void> {
-  // Переводы и языковой пакет Quasar загружаем до монтирования,
-  // иначе первый кадр будет на fallback-локали.
-  const locale = getStoredLocale()
-  const [lang] = await Promise.all([loadQuasarLang(locale), setLocale(locale)])
+  // Переводы выбранного языка загружаем до монтирования — иначе первый кадр будет на fallback-локали.
+  await setLocale(getStoredLocale())
 
   const app = createApp(App)
 
   app.use(createPinia())
   app.use(router)
   app.use(i18n)
-  app.use(Quasar, {
-    lang,
-    plugins: { Notify, Dialog, Loading },
-    config: {
-      brand: { primary: '#4f46e5' },
-      notify: { position: 'top-right', timeout: 3000, actions: [{ icon: 'close', color: 'white', round: true }] },
-    },
-  })
+  app.use(PrimeVue, primeVueOptions)
+  app.use(ToastService)
+  app.use(ConfirmationService)
+
+  app.directive('tooltip', Tooltip)
+  app.directive('ripple', Ripple)
+
+  registerComponents(app)
 
   app.mount('#app')
 }

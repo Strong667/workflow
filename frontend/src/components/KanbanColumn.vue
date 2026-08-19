@@ -40,7 +40,7 @@ function onDrop(event: DragEvent, index: number, status: TaskStatus): void {
     <header class="column__head">
       <span class="column__dot" :style="{ background: color }" />
       <h3 class="column__title">{{ title }}</h3>
-      <q-badge outline color="grey-7" :label="tasks.length" />
+      <Badge :value="tasks.length" severity="secondary" />
     </header>
 
     <div class="column__body">
@@ -63,7 +63,7 @@ function onDrop(event: DragEvent, index: number, status: TaskStatus): void {
         </div>
       </transition-group>
 
-      <EmptyState v-if="!tasks.length" :text="emptyText" icon="inbox" />
+      <EmptyState v-if="!tasks.length" :text="emptyText" icon="pi pi-inbox" />
     </div>
   </section>
 </template>
@@ -74,16 +74,20 @@ function onDrop(event: DragEvent, index: number, status: TaskStatus): void {
   flex-direction: column;
   min-width: 268px;
   flex: 1;
-  background: rgba(127, 134, 156, 0.08);
+  background: var(--p-surface-100);
   border: 1px dashed transparent;
   border-radius: var(--wf-radius);
   padding: 12px;
   transition: border-color 0.15s ease, background 0.15s ease;
 
   &--over {
-    border-color: var(--q-primary);
-    background: rgba(79, 70, 229, 0.09);
+    border-color: var(--p-primary-color);
+    background: color-mix(in srgb, var(--p-primary-color) 8%, transparent);
   }
+}
+
+html.dark .column {
+  background: var(--p-surface-900);
 }
 
 .column__head {

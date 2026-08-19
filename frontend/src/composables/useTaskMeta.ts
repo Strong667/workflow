@@ -1,44 +1,46 @@
 import { useI18n } from 'vue-i18n'
+import { resolveToken } from '@/ui/tokens'
 import type { TaskPriority, TaskStatus } from '@/types'
 
-/** Цвета Quasar-палитры: используются и в классах, и в Chart.js. */
-const STATUS_COLORS: Record<TaskStatus, string> = {
-  todo: '#94a3b8',
-  in_progress: '#3b82f6',
-  review: '#f59e0b',
-  done: '#22c55e',
-}
+type Severity = 'secondary' | 'success' | 'info' | 'warn' | 'danger' | 'contrast'
 
-const PRIORITY_COLORS: Record<TaskPriority, string> = {
-  low: '#94a3b8',
-  medium: '#f59e0b',
-  high: '#ef4444',
-}
-
-/** Имена цветов Quasar для color="…" у q-chip и q-badge. */
-const PRIORITY_TONES: Record<TaskPriority, string> = {
-  low: 'grey-6',
-  medium: 'warning',
-  high: 'negative',
-}
-
-const STATUS_TONES: Record<TaskStatus, string> = {
-  todo: 'grey-6',
+const STATUS_SEVERITIES: Record<TaskStatus, Severity> = {
+  todo: 'secondary',
   in_progress: 'info',
-  review: 'warning',
-  done: 'positive',
+  review: 'warn',
+  done: 'success',
 }
 
+const STATUS_COLOR_VARS: Record<TaskStatus, [string, string]> = {
+  todo: ['--p-surface-400', '#94a3b8'],
+  in_progress: ['--p-blue-500', '#3b82f6'],
+  review: ['--p-amber-500', '#f59e0b'],
+  done: ['--p-green-500', '#22c55e'],
+}
+
+const PRIORITY_SEVERITIES: Record<TaskPriority, Severity> = {
+  low: 'secondary',
+  medium: 'warn',
+  high: 'danger',
+}
+
+const PRIORITY_COLOR_VARS: Record<TaskPriority, [string, string]> = {
+  low: ['--p-surface-400', '#94a3b8'],
+  medium: ['--p-amber-500', '#f59e0b'],
+  high: ['--p-red-500', '#ef4444'],
+}
+
+/** Единый источник подписей, цветов и severity для статусов и приоритетов задач. */
 export function useTaskMeta() {
   const { t } = useI18n()
 
   return {
     statusLabel: (status: TaskStatus) => t(`tasks.statuses.${status}`),
-    statusTone: (status: TaskStatus) => STATUS_TONES[status],
-    statusColor: (status: TaskStatus) => STATUS_COLORS[status],
+    statusSeverity: (status: TaskStatus) => STATUS_SEVERITIES[status],
+    statusColor: (status: TaskStatus) => resolveToken(...STATUS_COLOR_VARS[status]),
     priorityLabel: (priority: TaskPriority) => t(`tasks.priorities.${priority}`),
-    priorityTone: (priority: TaskPriority) => PRIORITY_TONES[priority],
-    priorityColor: (priority: TaskPriority) => PRIORITY_COLORS[priority],
+    prioritySeverity: (priority: TaskPriority) => PRIORITY_SEVERITIES[priority],
+    priorityColor: (priority: TaskPriority) => resolveToken(...PRIORITY_COLOR_VARS[priority]),
   }
 }
 
@@ -59,11 +61,18 @@ export function formatDateTime(value?: string | null): string {
   })}`
 }
 
-/** q-date работает со строкой YYYY/MM/DD, API — с YYYY-MM-DD. */
-export function toQuasarDate(value?: string | null): string | null {
-  return value ? value.replaceAll('-', '/') : null
+/** DatePicker работает с Date, API — со строками YYYY-MM-DD. */
+export function toDate(value?: string | null): Date | null {
+  if (!value) return null
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? null : date
 }
 
-export function fromQuasarDate(value?: string | null): string | null {
-  return value ? value.replaceAll('/', '-') : null
+export function toDateString(value: Date | string | null | undefined): string | null {
+  if (!value) return null
+  const date = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(date.getTime())) return null
+  const month = `${date.getMonth() + 1}`.padStart(2, '0')
+  const day = `${date.getDate()}`.padStart(2, '0')
+  return `${date.getFullYear()}-${month}-${day}`
 }

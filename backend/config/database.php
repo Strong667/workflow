@@ -35,7 +35,9 @@ return [
         'sqlite' => [
             'driver' => 'sqlite',
             'url' => env('DB_URL'),
-            'database' => env('DB_DATABASE', database_path('database.sqlite')),
+            // Отдельная переменная: DB_DATABASE хранит имя базы MySQL,
+            // и как путь к файлу SQLite оно создавало мусор в корне проекта.
+            'database' => env('DB_SQLITE_DATABASE', database_path('database.sqlite')),
             'prefix' => '',
             'foreign_key_constraints' => env('DB_FOREIGN_KEYS', true),
             'busy_timeout' => null,

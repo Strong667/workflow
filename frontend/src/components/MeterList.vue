@@ -15,7 +15,7 @@ const max = computed(() => Math.max(1, ...props.items.map((item) => item.value))
       <span class="meters__track">
         <span
           class="meters__fill"
-          :style="{ width: `${(item.value / max) * 100}%`, background: item.color ?? 'var(--q-primary)' }"
+          :style="{ width: `${(item.value / max) * 100}%`, background: item.color ?? 'var(--p-primary-color)' }"
         />
       </span>
       <span class="meters__value">{{ item.value }}</span>
@@ -50,8 +50,12 @@ const max = computed(() => Math.max(1, ...props.items.map((item) => item.value))
 .meters__track {
   height: 8px;
   border-radius: 999px;
-  background: rgba(127, 134, 156, 0.2);
+  background: var(--p-surface-200);
   overflow: hidden;
+}
+
+html.dark .meters__track {
+  background: var(--p-surface-700);
 }
 
 .meters__fill {
