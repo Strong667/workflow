@@ -21,7 +21,6 @@ Route::middleware('jwt.guard')->group(function () {
     Route::post('uploads/avatar', [AvatarController::class, 'store'])->middleware('throttle:30,1');
 
     Route::get('dashboard', DashboardController::class);
-    Route::get('activity-logs', [ActivityLogController::class, 'index']);
 
     Route::get('employees', [EmployeeController::class, 'index']);
     Route::get('employees/{employee}', [EmployeeController::class, 'show']);
@@ -32,6 +31,10 @@ Route::middleware('jwt.guard')->group(function () {
 
     // Изменяющие операции по справочникам и аккаунты — только admin и manager.
     Route::middleware('role:admin,manager')->group(function () {
+        // Журнал закрыт и в интерфейсе: без этой строки роль employee
+        // читала его напрямую через API в обход роутера.
+        Route::get('activity-logs', [ActivityLogController::class, 'index']);
+
         Route::apiResource('users', UserController::class);
 
         Route::post('employees', [EmployeeController::class, 'store']);
