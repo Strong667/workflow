@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\DepartmentController;
 use App\Http\Controllers\Api\EmployeeController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\TaskController;
+use App\Http\Controllers\Api\UserController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('login', [AuthController::class, 'login'])->middleware('throttle:10,1');
@@ -29,8 +30,10 @@ Route::middleware('jwt.guard')->group(function () {
     Route::apiResource('tasks', TaskController::class);
     Route::patch('tasks/{task}/move', [TaskController::class, 'move']);
 
-    // Изменяющие операции по справочникам — только для admin и manager.
+    // Изменяющие операции по справочникам и аккаунты — только admin и manager.
     Route::middleware('role:admin,manager')->group(function () {
+        Route::apiResource('users', UserController::class);
+
         Route::post('employees', [EmployeeController::class, 'store']);
         Route::put('employees/{employee}', [EmployeeController::class, 'update']);
         Route::delete('employees/{employee}', [EmployeeController::class, 'destroy']);

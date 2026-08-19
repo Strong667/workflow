@@ -135,7 +135,7 @@ async function savePassword(): Promise<void> {
           <div class="wf-field">
             <label for="current-password" class="wf-field__label">{{ t('profile.currentPassword') }}</label>
             <Password
-              id="current-password"
+              input-id="current-password"
               v-model="password.current_password"
               :feedback="false"
               toggle-mask
@@ -150,7 +150,7 @@ async function savePassword(): Promise<void> {
           <div class="wf-field">
             <label for="new-password" class="wf-field__label">{{ t('profile.newPassword') }}</label>
             <Password
-              id="new-password"
+              input-id="new-password"
               v-model="password.password"
               toggle-mask
               :invalid="Boolean(passwordForm.errors.password)"
@@ -164,7 +164,7 @@ async function savePassword(): Promise<void> {
           <div class="wf-field">
             <label for="confirm-password" class="wf-field__label">{{ t('profile.confirmPassword') }}</label>
             <Password
-              id="confirm-password"
+              input-id="confirm-password"
               v-model="password.password_confirmation"
               :feedback="false"
               toggle-mask

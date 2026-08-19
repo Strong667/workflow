@@ -14,6 +14,13 @@ export interface User {
   theme: Theme
 }
 
+export interface UserPayload {
+  name?: string
+  email?: string
+  role?: Role
+  password?: string
+}
+
 export interface Department {
   id: number
   name: string

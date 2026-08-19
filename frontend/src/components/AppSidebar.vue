@@ -23,6 +23,7 @@ const mainNav: NavItem[] = [
   { name: 'employees', icon: 'pi pi-users', labelKey: 'nav.employees' },
   { name: 'tasks', icon: 'pi pi-list-check', labelKey: 'nav.tasks' },
   { name: 'departments', icon: 'pi pi-building', labelKey: 'nav.departments' },
+  { name: 'users', icon: 'pi pi-id-card', labelKey: 'nav.users', roles: ['admin', 'manager'] },
   { name: 'activity', icon: 'pi pi-history', labelKey: 'nav.activity', roles: ['admin', 'manager'] },
 ]
 

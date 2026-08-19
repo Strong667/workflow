@@ -79,6 +79,12 @@ const routes: RouteRecordRaw[] = [
         meta: { titleKey: 'nav.departments' },
       },
       {
+        path: 'users',
+        name: 'users',
+        component: () => import('@/views/UsersView.vue'),
+        meta: { titleKey: 'users.title', roles: ['admin', 'manager'] },
+      },
+      {
         path: 'activity',
         name: 'activity',
         component: () => import('@/views/ActivityLogView.vue'),

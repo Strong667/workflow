@@ -115,7 +115,7 @@ async function submit(): Promise<void> {
           <div class="wf-field">
             <label for="password" class="wf-field__label">{{ t('auth.password') }}</label>
             <Password
-              id="password"
+              input-id="password"
               v-model="form.password"
               :feedback="false"
               toggle-mask
