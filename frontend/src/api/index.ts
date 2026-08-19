@@ -34,6 +34,18 @@ export const authApi = {
   }) => http.put<{ data: User }>('/profile', payload).then((r) => r.data.data),
 }
 
+export const uploadsApi = {
+  /** Загружает изображение и возвращает публичный URL для поля avatar. */
+  avatar: (file: File) => {
+    const form = new FormData()
+    form.append('file', file)
+
+    return http
+      .post<{ url: string }>('/uploads/avatar', form, { timeout: 60000 })
+      .then((r) => r.data.url)
+  },
+}
+
 export const dashboardApi = {
   stats: () => http.get<{ data: DashboardStats }>('/dashboard').then((r) => r.data.data),
 }

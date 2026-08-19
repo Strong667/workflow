@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import AvatarUpload from '@/components/AvatarUpload.vue'
 import { authApi } from '@/api'
 import { apiMessage } from '@/api/client'
 import { rules, useValidation } from '@/composables/useValidation'
@@ -18,7 +19,7 @@ const savingPassword = ref(false)
 const profile = reactive({
   name: auth.user?.name ?? '',
   email: auth.user?.email ?? '',
-  avatar: auth.user?.avatar ?? '',
+  avatar: auth.user?.avatar ?? null,
 })
 
 const password = reactive({
@@ -81,8 +82,8 @@ async function savePassword(): Promise<void> {
     <div class="wf-grid profile-grid">
       <section class="wf-card panel panel--identity">
         <Avatar
-          :image="auth.user?.avatar ?? undefined"
-          :label="auth.user?.avatar ? undefined : auth.initials"
+          :image="profile.avatar ?? undefined"
+          :label="profile.avatar ? undefined : auth.initials"
           shape="circle"
           size="xlarge"
         />
@@ -120,8 +121,8 @@ async function savePassword(): Promise<void> {
           </div>
 
           <div class="wf-field">
-            <label for="profile-avatar" class="wf-field__label">{{ t('profile.avatar') }}</label>
-            <InputText id="profile-avatar" v-model="profile.avatar" placeholder="https://…" fluid />
+            <span class="wf-field__label">{{ t('profile.photo') }}</span>
+            <AvatarUpload v-model="profile.avatar" :initials="auth.initials" :size="86" />
           </div>
 
           <Button type="submit" :label="t('common.save')" :loading="savingProfile" />

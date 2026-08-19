@@ -2,6 +2,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
+import AvatarUpload from '@/components/AvatarUpload.vue'
 import { apiMessage } from '@/api/client'
 import { toDate, toDateString } from '@/composables/useTaskMeta'
 import { rules, useValidation } from '@/composables/useValidation'
@@ -19,6 +20,9 @@ const departments = useDepartmentsStore()
 
 const employeeId = computed(() => (route.params.id ? Number(route.params.id) : null))
 const isEdit = computed(() => employeeId.value !== null)
+const initials = computed(() =>
+  `${form.first_name[0] ?? ''}${form.last_name[0] ?? ''}`.toUpperCase(),
+)
 const loading = ref(false)
 
 const form = reactive({
@@ -29,7 +33,7 @@ const form = reactive({
   department_id: null as number | null,
   position: '',
   hire_date: null as Date | null,
-  avatar: '',
+  avatar: null as string | null,
 })
 
 const { errors, validate, validateField } = useValidation(form, {
@@ -53,7 +57,7 @@ onMounted(async () => {
         department_id: employee.department_id,
         position: employee.position ?? '',
         hire_date: toDate(employee.hire_date),
-        avatar: employee.avatar ?? '',
+        avatar: employee.avatar,
       })
     } catch (error) {
       notify.error(apiMessage(error, t('employees.notFound')))
@@ -166,9 +170,9 @@ async function submit(): Promise<void> {
             <DatePicker id="hire_date" v-model="form.hire_date" date-format="dd.mm.yy" show-icon fluid />
           </div>
 
-          <div class="wf-field">
-            <label for="avatar" class="wf-field__label">{{ t('employees.avatar') }}</label>
-            <InputText id="avatar" v-model="form.avatar" placeholder="https://…" fluid />
+          <div class="wf-field form__avatar">
+            <span class="wf-field__label">{{ t('employees.photo') }}</span>
+            <AvatarUpload v-model="form.avatar" :initials="initials" />
           </div>
         </div>
 
@@ -195,6 +199,10 @@ async function submit(): Promise<void> {
   display: grid;
   place-items: center;
   min-height: 260px;
+}
+
+.form__avatar {
+  grid-column: 1 / -1;
 }
 
 .form__grid {

@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\ActivityLogController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\AvatarController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\DepartmentController;
 use App\Http\Controllers\Api\EmployeeController;
@@ -16,6 +17,7 @@ Route::middleware('jwt.guard')->group(function () {
     Route::post('logout', [AuthController::class, 'logout']);
     Route::get('me', [AuthController::class, 'me']);
     Route::put('profile', [ProfileController::class, 'update']);
+    Route::post('uploads/avatar', [AvatarController::class, 'store'])->middleware('throttle:30,1');
 
     Route::get('dashboard', DashboardController::class);
     Route::get('activity-logs', [ActivityLogController::class, 'index']);

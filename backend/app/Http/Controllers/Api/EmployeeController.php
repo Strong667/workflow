@@ -7,12 +7,17 @@ use App\Http\Requests\EmployeeRequest;
 use App\Http\Resources\EmployeeResource;
 use App\Models\Employee;
 use App\Services\ActivityLogger;
+use App\Services\AvatarStorage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class EmployeeController extends Controller
 {
+    public function __construct(private readonly AvatarStorage $avatars)
+    {
+    }
+
     public function index(Request $request): AnonymousResourceCollection
     {
         $sort      = in_array($request->query('sort'), ['first_name', 'last_name', 'position', 'hire_date', 'created_at'], true)
@@ -50,7 +55,9 @@ class EmployeeController extends Controller
 
     public function update(EmployeeRequest $request, Employee $employee): JsonResponse
     {
+        $previousAvatar = $employee->avatar;
         $employee->update($request->validated());
+        $this->avatars->replace($previousAvatar, $employee->avatar);
         ActivityLogger::log('update', $employee, null, "Обновлён сотрудник {$employee->full_name}");
 
         return response()->json(['data' => new EmployeeResource($employee->load('department'))]);
@@ -60,6 +67,7 @@ class EmployeeController extends Controller
     {
         $name = $employee->full_name;
         $id   = $employee->id;
+        $this->avatars->delete($employee->avatar);
         $employee->delete();
         ActivityLogger::log('delete', 'Employee', $id, "Удалён сотрудник {$name}");
 

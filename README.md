@@ -26,6 +26,7 @@ composer install
 cp .env.example .env
 php artisan key:generate
 php artisan jwt:secret
+php artisan storage:link
 php artisan migrate --seed
 php artisan serve --port=8088
 ```
@@ -103,6 +104,12 @@ FLUSH PRIVILEGES;
 
 Валидация форм — собственный композабл `useValidation` (~60 строк): в проекте четыре типа правил, отдельная библиотека под них избыточна.
 
+### Фотографии
+
+Аватары загружаются файлом, а не ссылкой: `AvatarUpload.vue` отправляет изображение на `POST /api/uploads/avatar`, получает URL и подставляет его в поле `avatar` формы — запись сохраняется обычным JSON вместе с остальными полями.
+
+Файлы лежат в `storage/app/public/avatars` и раздаются через симлинк `public/storage` (создаётся командой `php artisan storage:link`). Ограничения — JPG, PNG, WEBP, GIF до 2 МБ и не больше 4000×4000; они проверяются и на клиенте, и на сервере. Прежний файл удаляется при замене фотографии и при удалении сотрудника, внешние URL при этом не трогаются — их по-прежнему можно задать через API.
+
 ### Переход на PrimeVue 5
 
 Проект к нему готов: с `primevue@5` проходят и `vue-tsc`, и сборка, без правок в коде. Мешает только лицензия — с пятой версии PrimeVue распространяется по PrimeUI License и требует ключ даже на бесплатном Community-тарифе. Порядок обновления, регистрация ключа и список учтённых отличий — в [docs/PRIMEVUE-5.md](docs/PRIMEVUE-5.md).
@@ -123,6 +130,7 @@ npm run upgrade:primevue5     # и обратно: npm run downgrade:primevue4
 | POST | `/api/logout` | Выход, инвалидация токена |
 | GET | `/api/me` | Текущий пользователь |
 | PUT | `/api/profile` | Профиль, смена пароля, тема и язык |
+| POST | `/api/uploads/avatar` | Загрузка фотографии, возвращает URL для поля `avatar` |
 | GET | `/api/dashboard` | Агрегаты для дашборда |
 | GET/POST/PUT/DELETE | `/api/employees` | CRUD сотрудников (поиск, фильтры, сортировка, пагинация) |
 | GET/POST/PUT/DELETE | `/api/tasks` | CRUD задач; `?board=1` — выборка для канбана |
