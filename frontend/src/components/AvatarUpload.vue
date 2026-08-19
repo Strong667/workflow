@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import AvatarCropper from '@/components/AvatarCropper.vue'
 import { uploadsApi } from '@/api'
 import { apiMessage } from '@/api/client'
 import { useNotify } from '@/ui/feedback'
@@ -22,6 +23,7 @@ const notify = useNotify()
 const input = ref<HTMLInputElement>()
 const uploading = ref(false)
 const dragOver = ref(false)
+const pendingFile = ref<File | null>(null)
 
 const ACCEPTED = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
 const MAX_BYTES = 2 * 1024 * 1024
@@ -32,35 +34,54 @@ function pick(): void {
   input.value?.click()
 }
 
-async function onFiles(files: FileList | null): Promise<void> {
+/** Файл не уходит на сервер сразу: сначала пользователь выбирает область. */
+function onFiles(files: FileList | null): void {
   const file = files?.[0]
   if (!file) return
 
   // Проверяем на клиенте, чтобы не гонять заведомо негодный файл на сервер.
   if (!ACCEPTED.includes(file.type)) {
     notify.error(t('avatar.wrongType'))
+    resetInput()
     return
   }
   if (file.size > MAX_BYTES) {
     notify.error(t('avatar.tooLarge'))
+    resetInput()
     return
   }
 
+  pendingFile.value = file
+}
+
+async function upload(blob: Blob): Promise<void> {
+  const name = (pendingFile.value?.name ?? 'avatar').replace(/\.[^.]+$/, '')
+  pendingFile.value = null
+  resetInput()
+
   uploading.value = true
   try {
-    emit('update:modelValue', await uploadsApi.avatar(file))
+    emit('update:modelValue', await uploadsApi.avatar(new File([blob], `${name}.png`, { type: 'image/png' })))
     notify.success(t('avatar.uploaded'))
   } catch (error) {
     notify.error(apiMessage(error, t('avatar.failed')))
   } finally {
     uploading.value = false
-    if (input.value) input.value.value = ''
   }
+}
+
+function cancelCrop(): void {
+  pendingFile.value = null
+  resetInput()
+}
+
+function resetInput(): void {
+  if (input.value) input.value.value = ''
 }
 
 function onDrop(event: DragEvent): void {
   dragOver.value = false
-  void onFiles(event.dataTransfer?.files ?? null)
+  onFiles(event.dataTransfer?.files ?? null)
 }
 
 function remove(): void {
@@ -128,6 +149,8 @@ function remove(): void {
       :accept="ACCEPTED.join(',')"
       @change="onFiles(($event.target as HTMLInputElement).files)"
     />
+
+    <AvatarCropper :file="pendingFile" @cropped="upload" @cancel="cancelCrop" />
   </div>
 </template>
 
@@ -165,6 +188,10 @@ function remove(): void {
 }
 
 .avatar-upload__image {
+  // Абсолютное позиционирование: у grid-элемента с place-items: center
+  // высота в процентах не разрешается и картинка сохраняет свои пропорции.
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;

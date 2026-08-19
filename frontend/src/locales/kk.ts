@@ -194,6 +194,9 @@ const messages: MessageSchema = {
     wrongType: 'JPG, PNG, WEBP немесе GIF форматы қажет',
     tooLarge: 'Файл 2 МБ-тан үлкен',
     hint: 'JPG, PNG, WEBP немесе GIF, 2 МБ дейін. Файлды аватарға сүйреуге болады.',
+    cropTitle: 'Аймақты таңдаңыз',
+    cropHint: 'Суретті сүйреп, масштабты реттеңіз — аватарға шеңбер ішіндегі бөлік түседі.',
+    cropApply: 'Қолдану',
   },
   roles: {
     admin: 'Әкімші',

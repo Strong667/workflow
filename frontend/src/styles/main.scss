@@ -133,6 +133,13 @@ a {
   transform: scale(0.97);
 }
 
+/* Аватары показываются в круге: без cover непрямоугольная картинка сжимается */
+.p-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 /* PrimeVue: убираем рамку таблицы — карточка уже даёт границу */
 .p-datatable .p-datatable-header,
 .p-datatable .p-datatable-footer {

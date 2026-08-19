@@ -194,6 +194,9 @@ const messages: MessageSchema = {
     wrongType: 'Use JPG, PNG, WEBP or GIF',
     tooLarge: 'File is larger than 2 MB',
     hint: 'JPG, PNG, WEBP or GIF up to 2 MB. You can drop a file onto the avatar.',
+    cropTitle: 'Choose the area',
+    cropHint: 'Drag the image and adjust the zoom — the avatar keeps what is inside the circle.',
+    cropApply: 'Apply',
   },
   roles: {
     admin: 'Administrator',

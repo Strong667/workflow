@@ -11,13 +11,75 @@ class AvatarStorage
     private const DISK      = 'public';
     private const DIRECTORY = 'avatars';
 
-    /** Сохраняет загруженный файл и возвращает публичный URL. */
+    /** Сторона итогового изображения: аватар нигде не показывается крупнее. */
+    private const SIZE = 512;
+
+    /**
+     * Приводит изображение к квадрату и сохраняет, возвращая публичный URL.
+     *
+     * Обрезка нужна и на сервере: область выбирает клиент, но через API
+     * могут прислать что угодно, а растянутый прямоугольник в круглом
+     * аватаре выглядит сжатым.
+     */
     public function store(UploadedFile $file): string
     {
-        $name = Str::uuid()->toString().'.'.strtolower($file->getClientOriginalExtension() ?: 'jpg');
-        $path = $file->storeAs(self::DIRECTORY, $name, self::DISK);
+        [$binary, $extension] = $this->normalize($file);
+
+        $path = self::DIRECTORY.'/'.Str::uuid()->toString().'.'.$extension;
+        Storage::disk(self::DISK)->put($path, $binary);
 
         return Storage::disk(self::DISK)->url($path);
+    }
+
+    /**
+     * Центральная обрезка до квадрата и уменьшение до SIZE.
+     *
+     * @return array{0: string, 1: string} бинарное содержимое и расширение
+     */
+    private function normalize(UploadedFile $file): array
+    {
+        $source = @imagecreatefromstring((string) file_get_contents($file->getRealPath()));
+
+        if ($source === false) {
+            // Формат не по зубам GD — сохраняем как есть, валидация файл уже проверила.
+            return [(string) file_get_contents($file->getRealPath()), strtolower($file->getClientOriginalExtension() ?: 'png')];
+        }
+
+        $width  = imagesx($source);
+        $height = imagesy($source);
+        $side   = min($width, $height);
+        $size   = min(self::SIZE, $side);
+
+        $canvas = imagecreatetruecolor($size, $size);
+        imagealphablending($canvas, false);
+        imagesavealpha($canvas, true);
+        imagefill($canvas, 0, 0, imagecolorallocatealpha($canvas, 0, 0, 0, 127));
+
+        imagecopyresampled(
+            $canvas,
+            $source,
+            0, 0,
+            (int) (($width - $side) / 2),
+            (int) (($height - $side) / 2),
+            $size, $size,
+            $side, $side
+        );
+
+        ob_start();
+        $extension = strtolower($file->getClientOriginalExtension() ?: 'png');
+
+        match ($extension) {
+            'jpg', 'jpeg' => imagejpeg($canvas, null, 88),
+            'webp'        => imagewebp($canvas, null, 88),
+            default       => imagepng($canvas, null, 8),
+        };
+
+        $binary = (string) ob_get_clean();
+
+        imagedestroy($canvas);
+        imagedestroy($source);
+
+        return [$binary, in_array($extension, ['jpg', 'jpeg', 'webp'], true) ? $extension : 'png'];
     }
 
     /**
