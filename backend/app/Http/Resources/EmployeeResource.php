@@ -18,6 +18,12 @@ class EmployeeResource extends JsonResource
             'email'         => $this->email,
             'phone'         => $this->phone,
             'department_id' => $this->department_id,
+            'user_id'       => $this->user_id,
+            'account'       => $this->whenLoaded('user', fn () => [
+                'id'    => $this->user->id,
+                'email' => $this->user->email,
+                'role'  => $this->user->role,
+            ]),
             'department'    => new DepartmentResource($this->whenLoaded('department')),
             'position'      => $this->position,
             'hire_date'     => $this->hire_date?->toDateString(),

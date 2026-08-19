@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\AvatarController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\DepartmentController;
+use App\Http\Controllers\Api\EmployeeAccountController;
 use App\Http\Controllers\Api\EmployeeController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\TaskController;
@@ -26,7 +27,9 @@ Route::middleware('jwt.guard')->group(function () {
     Route::get('employees/{employee}', [EmployeeController::class, 'show']);
     Route::get('departments', [DepartmentController::class, 'index']);
     Route::get('departments/{department}', [DepartmentController::class, 'show']);
-    Route::apiResource('tasks', TaskController::class);
+    Route::get('tasks', [TaskController::class, 'index']);
+    Route::get('tasks/{task}', [TaskController::class, 'show']);
+    Route::put('tasks/{task}', [TaskController::class, 'update']);
     Route::patch('tasks/{task}/move', [TaskController::class, 'move']);
 
     // Изменяющие операции по справочникам и аккаунты — только admin и manager.
@@ -37,9 +40,16 @@ Route::middleware('jwt.guard')->group(function () {
 
         Route::apiResource('users', UserController::class);
 
+        // Заводить и удалять задачи может только руководство.
+        Route::post('tasks', [TaskController::class, 'store']);
+        Route::delete('tasks/{task}', [TaskController::class, 'destroy']);
+
         Route::post('employees', [EmployeeController::class, 'store']);
         Route::put('employees/{employee}', [EmployeeController::class, 'update']);
         Route::delete('employees/{employee}', [EmployeeController::class, 'destroy']);
+        Route::post('employees/{employee}/account', [EmployeeAccountController::class, 'store']);
+        Route::put('employees/{employee}/account', [EmployeeAccountController::class, 'update']);
+        Route::delete('employees/{employee}/account', [EmployeeAccountController::class, 'destroy']);
 
         Route::post('departments', [DepartmentController::class, 'store']);
         Route::put('departments/{department}', [DepartmentController::class, 'update']);

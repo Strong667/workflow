@@ -6,6 +6,7 @@ import { useDebounceFn } from '@vueuse/core'
 import KanbanColumn from '@/components/KanbanColumn.vue'
 import { apiMessage } from '@/api/client'
 import { useTaskMeta } from '@/composables/useTaskMeta'
+import { useAuthStore } from '@/stores/auth'
 import { useDepartmentsStore } from '@/stores/departments'
 import { useTasksStore, STATUSES } from '@/stores/tasks'
 import type { Task, TaskPriority, TaskStatus } from '@/types'
@@ -15,6 +16,8 @@ const { t } = useI18n()
 const router = useRouter()
 const confirmDelete = useConfirmDelete()
 const notify = useNotify()
+const auth = useAuthStore()
+const canManage = auth.can('admin', 'manager')
 const tasks = useTasksStore()
 const departments = useDepartmentsStore()
 const { statusLabel, statusColor } = useTaskMeta()
@@ -87,9 +90,16 @@ function remove(task: Task): void {
     <div class="wf-page__header">
       <div>
         <h1 class="wf-page__title">{{ t('tasks.title') }}</h1>
-        <p class="wf-page__subtitle">{{ t('tasks.dragHint') }} · {{ t('common.total') }}: {{ tasks.totalCount }}</p>
+        <p class="wf-page__subtitle">
+          {{ canManage ? t('tasks.dragHint') : t('tasks.ownHint') }} · {{ t('common.total') }}: {{ tasks.totalCount }}
+        </p>
       </div>
-      <Button icon="pi pi-plus" :label="t('tasks.create')" @click="router.push({ name: 'tasks.create' })" />
+      <Button
+        v-if="canManage"
+        icon="pi pi-plus"
+        :label="t('tasks.create')"
+        @click="router.push({ name: 'tasks.create' })"
+      />
     </div>
 
     <div class="wf-card filters">
@@ -132,6 +142,7 @@ function remove(task: Task): void {
         :color="statusColor(status)"
         :tasks="tasks.board[status]"
         :empty-text="t('tasks.empty')"
+        :can-remove="canManage"
         @dragstart="onDragStart"
         @dragend="dragged = null"
         @drop="onDrop"

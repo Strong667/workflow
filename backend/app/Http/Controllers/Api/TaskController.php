@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\TaskRequest;
 use App\Http\Resources\TaskResource;
 use App\Models\Task;
+use App\Models\User;
 use App\Services\ActivityLogger;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -18,6 +20,7 @@ class TaskController extends Controller
     {
         $query = Task::query()
             ->with('employee.department')
+            ->tap(fn ($q) => $this->scopeToOwnTasks($q, $request))
             ->search($request->query('search'))
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->query('status')))
             ->when($request->filled('priority'), fn ($q) => $q->where('priority', $request->query('priority')))
@@ -55,13 +58,21 @@ class TaskController extends Controller
         return response()->json(['data' => new TaskResource($task->load('employee'))], 201);
     }
 
-    public function show(Task $task): JsonResponse
+    public function show(Request $request, Task $task): JsonResponse
     {
+        if ($denied = $this->denyForeignTask($request, $task)) {
+            return $denied;
+        }
+
         return response()->json(['data' => new TaskResource($task->load('employee.department'))]);
     }
 
     public function update(TaskRequest $request, Task $task): JsonResponse
     {
+        if ($denied = $this->denyForeignTask($request, $task)) {
+            return $denied;
+        }
+
         $original = $task->status;
         $task->update($request->validated());
 
@@ -71,6 +82,35 @@ class TaskController extends Controller
         ActivityLogger::log('update', $task, null, $description);
 
         return response()->json(['data' => new TaskResource($task->load('employee'))]);
+    }
+
+    /**
+     * Рядовой сотрудник работает только со своими задачами: доска, карточка
+     * и перенос ограничены его карточкой в справочнике. Если карточки нет —
+     * задач тоже нет, иначе он видел бы чужую работу.
+     */
+    private function scopeToOwnTasks(Builder $query, Request $request): void
+    {
+        $user = $request->user();
+
+        if ($user === null || $user->hasRole(User::ROLE_ADMIN, User::ROLE_MANAGER)) {
+            return;
+        }
+
+        $query->where('employee_id', $user->employee?->id ?? 0);
+    }
+
+    private function denyForeignTask(Request $request, Task $task): ?JsonResponse
+    {
+        $user = $request->user();
+
+        if ($user->hasRole(User::ROLE_ADMIN, User::ROLE_MANAGER)) {
+            return null;
+        }
+
+        return $task->employee_id === $user->employee?->id
+            ? null
+            : response()->json(['message' => 'Задача назначена другому сотруднику'], 403);
     }
 
     public function destroy(Task $task): JsonResponse
@@ -86,6 +126,10 @@ class TaskController extends Controller
     /** Перенос карточки на канбан-доске: новый статус + порядок в колонке. */
     public function move(Request $request, Task $task): JsonResponse
     {
+        if ($denied = $this->denyForeignTask($request, $task)) {
+            return $denied;
+        }
+
         $validated = $request->validate([
             'status'   => ['required', 'in:'.implode(',', Task::STATUSES)],
             'position' => ['required', 'integer', 'min:0'],

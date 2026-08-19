@@ -1,14 +1,16 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import EmptyState from '@/components/EmptyState.vue'
 import { apiMessage } from '@/api/client'
 import { formatDate, useTaskMeta } from '@/composables/useTaskMeta'
 import { useAuthStore } from '@/stores/auth'
+import { employeesApi, usersApi } from '@/api'
+import { rules, useValidation } from '@/composables/useValidation'
 import { useEmployeesStore } from '@/stores/employees'
-import type { Task } from '@/types'
-import { Column, DataTable } from '@/ui/lazy-components'
+import type { Task, User } from '@/types'
+import { Column, DataTable, Dialog, Password } from '@/ui/lazy-components'
 import { useConfirmDelete, useNotify } from '@/ui/feedback'
 
 const { t } = useI18n()
@@ -21,6 +23,18 @@ const employees = useEmployeesStore()
 const { statusLabel, statusSeverity, priorityLabel, prioritySeverity } = useTaskMeta()
 
 const loading = ref(true)
+const accessDialog = ref(false)
+const grantingAccess = ref(false)
+const accessForm = reactive({ password: '' })
+
+const accessValidation = useValidation(accessForm, {
+  password: [rules.required(t('auth.passwordRequired')), rules.minLength(6, t('auth.passwordMin'))],
+})
+
+const linkDialog = ref(false)
+const linking = ref(false)
+const freeAccounts = ref<User[]>([])
+const selectedAccount = ref<number | null>(null)
 const employee = computed(() => employees.current)
 const canManage = auth.can('admin', 'manager')
 
@@ -41,6 +55,65 @@ onMounted(async () => {
     loading.value = false
   }
 })
+
+/** Аккаунты без карточки — только их и можно привязать. */
+async function openLinkDialog(): Promise<void> {
+  selectedAccount.value = null
+  linkDialog.value = true
+  try {
+    freeAccounts.value = (await usersApi.list({ unlinked: true })).data
+  } catch (error) {
+    notify.error(apiMessage(error))
+  }
+}
+
+async function linkAccount(): Promise<void> {
+  if (!employee.value || !selectedAccount.value) return
+
+  linking.value = true
+  try {
+    employees.current = await employeesApi.linkAccount(employee.value.id, selectedAccount.value)
+    notify.success(t('employees.accessGranted'))
+    linkDialog.value = false
+  } catch (error) {
+    notify.error(apiMessage(error))
+  } finally {
+    linking.value = false
+  }
+}
+
+function openAccessDialog(): void {
+  accessForm.password = ''
+  accessValidation.clear()
+  accessDialog.value = true
+}
+
+/** Аккаунт заводится на email из карточки — данные не разъезжаются. */
+async function grantAccess(): Promise<void> {
+  if (!employee.value || !accessValidation.validate()) return
+
+  grantingAccess.value = true
+  try {
+    employees.current = await employeesApi.grantAccess(employee.value.id, { password: accessForm.password })
+    notify.success(t('employees.accessGranted'))
+    accessDialog.value = false
+  } catch (error) {
+    notify.error(apiMessage(error))
+  } finally {
+    grantingAccess.value = false
+  }
+}
+
+async function revokeAccess(): Promise<void> {
+  if (!employee.value) return
+
+  try {
+    employees.current = await employeesApi.revokeAccess(employee.value.id)
+    notify.success(t('employees.accessRevoked'))
+  } catch (error) {
+    notify.error(apiMessage(error))
+  }
+}
 
 function remove(): void {
   if (!employee.value) return
@@ -106,6 +179,42 @@ function remove(): void {
         </ul>
       </section>
 
+      <section v-if="canManage" class="wf-card access">
+        <h3 class="access__title">
+          <i class="pi pi-key" />
+          {{ t('employees.access') }}
+        </h3>
+
+        <template v-if="employee.account">
+          <p class="access__text">
+            {{ t('employees.accessActive') }}
+            <b>{{ employee.account.email }}</b>
+            <Tag :value="t(`roles.${employee.account.role}`)" severity="secondary" rounded class="access__role" />
+          </p>
+          <Button
+            :label="t('employees.revokeAccess')"
+            icon="pi pi-ban"
+            severity="danger"
+            outlined
+            size="small"
+            @click="revokeAccess"
+          />
+        </template>
+
+        <template v-else>
+          <p class="access__text wf-muted">{{ t('employees.accessNone') }}</p>
+          <Button :label="t('employees.grantAccess')" icon="pi pi-key" size="small" @click="openAccessDialog" />
+          <Button
+            :label="t('employees.linkAccount')"
+            icon="pi pi-link"
+            severity="secondary"
+            outlined
+            size="small"
+            @click="openLinkDialog"
+          />
+        </template>
+      </section>
+
       <section class="wf-card profile__tasks">
         <h3 class="profile__tasks-title">
           {{ t('employees.tasksOf') }}
@@ -134,6 +243,72 @@ function remove(): void {
         <EmptyState v-else :text="t('tasks.empty')" icon="pi pi-list-check" />
       </section>
     </div>
+    <Dialog
+      v-model:visible="linkDialog"
+      :header="t('employees.linkAccount')"
+      modal
+      :style="{ width: '420px' }"
+    >
+      <p class="wf-muted access__hint">{{ t('employees.linkHint') }}</p>
+
+      <Select
+        v-model="selectedAccount"
+        :options="freeAccounts"
+        option-label="email"
+        option-value="id"
+        :placeholder="t('employees.linkPlaceholder')"
+        :empty-message="t('employees.linkEmpty')"
+        filter
+        fluid
+      >
+        <template #option="{ option }: { option: User }">
+          <div class="link-option">
+            <span>{{ option.name }}</span>
+            <small class="wf-muted">{{ option.email }} · {{ t(`roles.${option.role}`) }}</small>
+          </div>
+        </template>
+      </Select>
+
+      <template #footer>
+        <Button :label="t('common.cancel')" severity="secondary" outlined @click="linkDialog = false" />
+        <Button
+          :label="t('employees.linkAccount')"
+          :disabled="!selectedAccount"
+          :loading="linking"
+          @click="linkAccount"
+        />
+      </template>
+    </Dialog>
+
+    <Dialog
+      v-model:visible="accessDialog"
+      :header="t('employees.grantAccess')"
+      modal
+      :style="{ width: '420px' }"
+    >
+      <p class="wf-muted access__hint">{{ t('employees.accessHint', { email: employee?.email }) }}</p>
+
+      <div class="wf-field">
+        <label for="access-password" class="wf-field__label">{{ t('auth.password') }}</label>
+        <Password
+          input-id="access-password"
+          v-model="accessForm.password"
+          toggle-mask
+          :invalid="Boolean(accessValidation.errors.password)"
+          fluid
+          autofocus
+          @blur="accessValidation.validateField('password')"
+        />
+        <small v-if="accessValidation.errors.password" class="wf-field__error">
+          {{ accessValidation.errors.password }}
+        </small>
+      </div>
+
+      <template #footer>
+        <Button :label="t('common.cancel')" severity="secondary" outlined @click="accessDialog = false" />
+        <Button :label="t('employees.grantAccess')" :loading="grantingAccess" @click="grantAccess" />
+      </template>
+    </Dialog>
   </div>
 </template>
 
@@ -190,6 +365,49 @@ function remove(): void {
   font-weight: 550;
   text-align: right;
   word-break: break-word;
+}
+
+.access {
+  grid-column: 1 / -1;
+  padding: 18px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.access__title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 650;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.access__text {
+  margin: 0;
+  font-size: 13px;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.access__role {
+  margin-left: 4px;
+}
+
+.link-option {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+
+.access__hint {
+  margin: 0 0 16px;
+  font-size: 12.5px;
 }
 
 .profile__tasks {

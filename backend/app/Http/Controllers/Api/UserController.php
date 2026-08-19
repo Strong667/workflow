@@ -21,11 +21,14 @@ class UserController extends Controller
     public function index(Request $request): AnonymousResourceCollection
     {
         $users = User::query()
+            ->with('employee')
             ->when($request->filled('search'), function ($query) use ($request) {
                 $term = '%'.str_replace('%', '\%', (string) $request->query('search')).'%';
                 $query->where(fn ($q) => $q->where('name', 'like', $term)->orWhere('email', 'like', $term));
             })
             ->when($request->filled('role'), fn ($q) => $q->where('role', $request->query('role')))
+            // Для привязки к карточке сотрудника нужны только свободные аккаунты.
+            ->when($request->boolean('unlinked'), fn ($q) => $q->whereDoesntHave('employee'))
             ->orderBy('name')
             ->paginate(min($request->integer('per_page', 15), 100))
             ->withQueryString();

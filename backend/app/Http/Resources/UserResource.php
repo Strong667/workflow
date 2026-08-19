@@ -18,6 +18,10 @@ class UserResource extends JsonResource
             'avatar'   => $this->avatar,
             'language' => $this->language,
             'theme'    => $this->theme,
+            'employee' => $this->whenLoaded('employee', fn () => $this->employee ? [
+                'id'        => $this->employee->id,
+                'full_name' => $this->employee->full_name,
+            ] : null),
         ];
     }
 }

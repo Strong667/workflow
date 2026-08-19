@@ -6,6 +6,7 @@ export type TaskPriority = 'low' | 'medium' | 'high'
 
 export interface User {
   id: number
+  employee?: { id: number; full_name: string } | null
   name: string
   email: string
   role: Role
@@ -29,8 +30,16 @@ export interface Department {
   created_at?: string
 }
 
+export interface EmployeeAccount {
+  id: number
+  email: string
+  role: Role
+}
+
 export interface Employee {
   id: number
+  user_id?: number | null
+  account?: EmployeeAccount | null
   first_name: string
   last_name: string
   full_name: string

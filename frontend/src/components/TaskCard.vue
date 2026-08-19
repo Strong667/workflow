@@ -5,7 +5,9 @@ import { formatDate, useTaskMeta } from '@/composables/useTaskMeta'
 import type { Task } from '@/types'
 import { type MenuItem } from '@/ui/lazy-components'
 
-const props = defineProps<{ task: Task; draggable?: boolean }>()
+const props = withDefaults(defineProps<{ task: Task; draggable?: boolean; canRemove?: boolean }>(), {
+  canRemove: true,
+})
 const emit = defineEmits<{
   (e: 'edit', task: Task): void
   (e: 'remove', task: Task): void
@@ -19,8 +21,10 @@ const menu = ref()
 
 const menuItems = computed<MenuItem[]>(() => [
   { label: t('common.edit'), icon: 'pi pi-pencil', command: () => emit('edit', props.task) },
-  { separator: true },
-  { label: t('common.delete'), icon: 'pi pi-trash', command: () => emit('remove', props.task) },
+  // Удаление задач доступно только руководству.
+  ...(props.canRemove
+    ? [{ separator: true }, { label: t('common.delete'), icon: 'pi pi-trash', command: () => emit('remove', props.task) }]
+    : []),
 ])
 
 const initials = computed(() => {

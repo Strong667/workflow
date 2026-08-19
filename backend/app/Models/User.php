@@ -54,6 +54,12 @@ class User extends Authenticatable implements JWTSubject
         return $this->hasMany(ActivityLog::class);
     }
 
+    /** Карточка в справочнике сотрудников; есть не у каждого аккаунта. */
+    public function employee()
+    {
+        return $this->hasOne(Employee::class);
+    }
+
     public function hasRole(string ...$roles): bool
     {
         return in_array($this->role, $roles, true);

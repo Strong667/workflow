@@ -37,7 +37,7 @@ export const authApi = {
 }
 
 export const usersApi = {
-  list: (params: { search?: string; role?: Role | null; page?: number } = {}) =>
+  list: (params: { search?: string; role?: Role | null; page?: number; unlinked?: boolean } = {}) =>
     http.get<Paginated<User>>('/users', { params }).then((r) => r.data),
   create: (payload: UserPayload) =>
     http.post<{ data: User }>('/users', payload).then((r) => r.data.data),
@@ -71,6 +71,15 @@ export const employeesApi = {
   update: (id: number, payload: Partial<Employee>) =>
     http.put<{ data: Employee }>(`/employees/${id}`, payload).then((r) => r.data.data),
   remove: (id: number) => http.delete(`/employees/${id}`).then((r) => r.data),
+
+  /** Выдаёт сотруднику доступ в систему: заводит аккаунт на его email. */
+  grantAccess: (id: number, payload: { password: string; role?: Role }) =>
+    http.post<{ data: Employee }>(`/employees/${id}/account`, payload).then((r) => r.data.data),
+  /** Привязывает уже существующий аккаунт к карточке сотрудника. */
+  linkAccount: (id: number, userId: number) =>
+    http.put<{ data: Employee }>(`/employees/${id}/account`, { user_id: userId }).then((r) => r.data.data),
+  revokeAccess: (id: number) =>
+    http.delete<{ data: Employee }>(`/employees/${id}/account`).then((r) => r.data.data),
 }
 
 export const departmentsApi = {

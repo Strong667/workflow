@@ -26,7 +26,7 @@ class EmployeeController extends Controller
         $direction = $request->query('direction') === 'asc' ? 'asc' : 'desc';
 
         $employees = Employee::query()
-            ->with('department')
+            ->with(['department', 'user'])
             ->withCount('tasks')
             ->search($request->query('search'))
             ->when($request->filled('department_id'), fn ($q) => $q->where('department_id', $request->integer('department_id')))
@@ -48,7 +48,7 @@ class EmployeeController extends Controller
 
     public function show(Employee $employee): JsonResponse
     {
-        $employee->load(['department', 'tasks' => fn ($q) => $q->latest()]);
+        $employee->load(['department', 'user', 'tasks' => fn ($q) => $q->latest()]);
 
         return response()->json(['data' => new EmployeeResource($employee)]);
     }

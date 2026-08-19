@@ -4,13 +4,17 @@ import TaskCard from '@/components/TaskCard.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import type { Task, TaskStatus } from '@/types'
 
-defineProps<{
-  status: TaskStatus
-  title: string
-  color: string
-  tasks: Task[]
-  emptyText: string
-}>()
+withDefaults(
+  defineProps<{
+    status: TaskStatus
+    title: string
+    color: string
+    tasks: Task[]
+    emptyText: string
+    canRemove?: boolean
+  }>(),
+  { canRemove: true },
+)
 
 const emit = defineEmits<{
   (e: 'drop', payload: { status: TaskStatus; index: number }): void
@@ -55,6 +59,7 @@ function onDrop(event: DragEvent, index: number, status: TaskStatus): void {
           <TaskCard
             :task="task"
             draggable
+            :can-remove="canRemove"
             @dragstart="(event, payload) => emit('dragstart', event, payload)"
             @dragend="emit('dragend')"
             @edit="(payload) => emit('edit', payload)"
