@@ -7,14 +7,17 @@ import { apiMessage } from '@/api/client'
 import { toDate, toDateString } from '@/composables/useTaskMeta'
 import { rules, useValidation } from '@/composables/useValidation'
 import { useDepartmentsStore } from '@/stores/departments'
+import { useAuthStore } from '@/stores/auth'
 import { useEmployeesStore } from '@/stores/employees'
-import { DatePicker } from '@/ui/lazy-components'
+import type { Role } from '@/types'
+import { DatePicker, Password } from '@/ui/lazy-components'
 import { useNotify } from '@/ui/feedback'
 
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const notify = useNotify()
+const auth = useAuthStore()
 const employees = useEmployeesStore()
 const departments = useDepartmentsStore()
 
@@ -34,13 +37,27 @@ const form = reactive({
   position: '',
   hire_date: null as Date | null,
   avatar: null as string | null,
+  role: 'employee' as Role,
+  password: '',
 })
 
 const { errors, validate, validateField } = useValidation(form, {
   first_name: [rules.required(t('common.requiredField'))],
   last_name: [rules.required(t('common.requiredField'))],
   email: [rules.required(t('auth.emailRequired')), rules.email(t('auth.emailInvalid'))],
+  // При создании пароль обязателен: человек должен войти сразу.
+  password: [
+    (value) => (!isEdit.value && !value ? t('auth.passwordRequired') : null),
+    (value) => (typeof value === 'string' && value.length > 0 && value.length < 6 ? t('auth.passwordMin') : null),
+  ],
 })
+
+/** Менеджер не выдаёт роль администратора. */
+const roleOptions = computed(() =>
+  (auth.can('admin') ? (['admin', 'manager', 'employee'] as Role[]) : (['manager', 'employee'] as Role[])).map(
+    (value) => ({ value, label: t(`roles.${value}`) }),
+  ),
+)
 
 onMounted(async () => {
   await departments.fetchOptions()
@@ -58,6 +75,8 @@ onMounted(async () => {
         position: employee.position ?? '',
         hire_date: toDate(employee.hire_date),
         avatar: employee.avatar,
+        role: employee.account?.role ?? 'employee',
+        password: '',
       })
     } catch (error) {
       notify.error(apiMessage(error, t('employees.notFound')))
@@ -71,7 +90,12 @@ onMounted(async () => {
 async function submit(): Promise<void> {
   if (!validate()) return
 
-  const payload = { ...form, hire_date: toDateString(form.hire_date) }
+  const payload = {
+    ...form,
+    hire_date: toDateString(form.hire_date),
+    // Пустой пароль при редактировании означает «оставить прежний».
+    ...(isEdit.value && !form.password ? { password: undefined } : {}),
+  }
 
   try {
     if (isEdit.value && employeeId.value) {
@@ -170,6 +194,45 @@ async function submit(): Promise<void> {
             <DatePicker id="hire_date" v-model="form.hire_date" date-format="dd.mm.yy" show-icon fluid />
           </div>
 
+          <div class="wf-field form__section">
+            <h3 class="form__section-title">
+              <i class="pi pi-key" />
+              {{ t('employees.access') }}
+            </h3>
+            <p class="wf-muted form__section-hint">
+              {{ isEdit ? t('employees.accessEditHint') : t('employees.accessCreateHint') }}
+            </p>
+          </div>
+
+          <div class="wf-field">
+            <label for="role" class="wf-field__label">{{ t('settings.role') }}</label>
+            <Select
+              id="role"
+              v-model="form.role"
+              :options="roleOptions"
+              option-label="label"
+              option-value="value"
+              fluid
+            />
+          </div>
+
+          <div class="wf-field">
+            <label for="password" class="wf-field__label">
+              {{ isEdit ? t('employees.newPassword') : t('auth.password') }}
+            </label>
+            <Password
+              input-id="password"
+              v-model="form.password"
+              :feedback="!isEdit"
+              toggle-mask
+              :placeholder="isEdit ? t('employees.passwordKeep') : ''"
+              :invalid="Boolean(errors.password)"
+              fluid
+              @blur="validateField('password')"
+            />
+            <small v-if="errors.password" class="wf-field__error">{{ errors.password }}</small>
+          </div>
+
           <div class="wf-field form__avatar">
             <span class="wf-field__label">{{ t('employees.photo') }}</span>
             <AvatarUpload v-model="form.avatar" :initials="initials" />
@@ -203,6 +266,27 @@ async function submit(): Promise<void> {
 
 .form__avatar {
   grid-column: 1 / -1;
+}
+
+.form__section {
+  grid-column: 1 / -1;
+  margin-bottom: 0;
+  padding-top: 8px;
+  border-top: 1px solid var(--wf-border);
+}
+
+.form__section-title {
+  margin: 12px 0 4px;
+  font-size: 14px;
+  font-weight: 650;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.form__section-hint {
+  margin: 0;
+  font-size: 12.5px;
 }
 
 .form__grid {

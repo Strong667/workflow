@@ -110,6 +110,7 @@ export type Board = Record<TaskStatus, Task[]>
 
 export interface EmployeeFilters {
   search?: string
+  role?: Role | null
   department_id?: number | null
   position?: string
   sort?: string

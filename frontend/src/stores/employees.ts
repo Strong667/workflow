@@ -11,6 +11,7 @@ export const useEmployeesStore = defineStore('employees', () => {
   const total = ref(0)
   const filters = ref<EmployeeFilters>({
     search: '',
+    role: null,
     department_id: null,
     position: '',
     sort: 'created_at',
@@ -37,7 +38,7 @@ export const useEmployeesStore = defineStore('employees', () => {
   }
 
   function resetFilters(): void {
-    filters.value = { search: '', department_id: null, position: '', sort: 'created_at', direction: 'desc', page: 1, per_page: 10 }
+    filters.value = { search: '', role: null, department_id: null, position: '', sort: 'created_at', direction: 'desc', page: 1, per_page: 10 }
   }
 
   async function fetchOne(id: number): Promise<Employee> {

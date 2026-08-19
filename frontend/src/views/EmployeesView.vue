@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { useDebounceFn } from '@vueuse/core'
@@ -10,7 +10,7 @@ import { formatDate } from '@/composables/useTaskMeta'
 import { useAuthStore } from '@/stores/auth'
 import { useDepartmentsStore } from '@/stores/departments'
 import { useEmployeesStore } from '@/stores/employees'
-import type { Employee } from '@/types'
+import type { Employee, Role } from '@/types'
 import { Column, DataTable, type DataTablePageEvent, type DataTableSortEvent } from '@/ui/lazy-components'
 import { useConfirmDelete, useNotify } from '@/ui/feedback'
 
@@ -23,6 +23,17 @@ const employees = useEmployeesStore()
 const departments = useDepartmentsStore()
 
 const search = ref(employees.filters.search ?? '')
+const roleFilter = ref<Role | null>(null)
+
+const roleOptions = computed(() =>
+  (['admin', 'manager', 'employee'] as Role[]).map((value) => ({ value, label: t(`roles.${value}`) })),
+)
+
+const roleSeverities: Record<Role, 'danger' | 'warn' | 'info'> = {
+  admin: 'danger',
+  manager: 'warn',
+  employee: 'info',
+}
 const canManage = auth.can('admin', 'manager')
 
 // Поиск отправляется на сервер не чаще раза в 400 мс.
@@ -42,6 +53,11 @@ function onDepartmentChange(value: number | null): void {
   void employees.fetch()
 }
 
+function onRoleChange(value: Role | null): void {
+  employees.setFilter('role', value)
+  void employees.fetch()
+}
+
 function onPage(event: DataTablePageEvent): void {
   employees.setFilter('page', event.page + 1)
   void employees.fetch()
@@ -55,6 +71,7 @@ function onSort(event: DataTableSortEvent): void {
 
 function resetFilters(): void {
   search.value = ''
+  roleFilter.value = null
   employees.resetFilters()
   void employees.fetch()
 }
@@ -103,6 +120,17 @@ function remove(employee: Employee): void {
         @update:model-value="onDepartmentChange"
       />
 
+      <Select
+        v-model="roleFilter"
+        :options="roleOptions"
+        option-label="label"
+        option-value="value"
+        :placeholder="t('settings.role')"
+        show-clear
+        class="filters__select"
+        @update:model-value="onRoleChange"
+      />
+
       <Button :label="t('common.reset')" severity="secondary" text @click="resetFilters" />
     </div>
 
@@ -127,7 +155,7 @@ function remove(employee: Employee): void {
             <div class="person">
               <Avatar
                 :image="data.avatar ?? undefined"
-                :label="data.avatar ? undefined : `${data.first_name[0]}${data.last_name[0]}`"
+                :label="data.avatar ? undefined : `${data.first_name[0] ?? ''}${data.last_name[0] ?? ''}`"
                 shape="circle"
               />
               <div class="person__info">
@@ -148,6 +176,18 @@ function remove(employee: Employee): void {
           <template #body="{ data }: { data: Employee }">
             <Tag v-if="data.department" :value="data.department.name" severity="secondary" rounded />
             <span v-else class="wf-muted">{{ t('employees.noDepartment') }}</span>
+          </template>
+        </Column>
+
+        <Column :header="t('settings.role')" style="width: 150px">
+          <template #body="{ data }: { data: Employee }">
+            <Tag
+              v-if="data.account"
+              :value="t(`roles.${data.account.role}`)"
+              :severity="roleSeverities[data.account.role]"
+              rounded
+            />
+            <span v-else class="wf-muted">{{ t('employees.noAccess') }}</span>
           </template>
         </Column>
 

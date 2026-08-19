@@ -29,7 +29,7 @@ const menuItems = computed<MenuItem[]>(() => [
 
 const initials = computed(() => {
   const employee = props.task.employee
-  return employee ? `${employee.first_name[0]}${employee.last_name[0]}` : ''
+  return employee ? `${employee.first_name[0] ?? ''}${employee.last_name[0] ?? ''}` : ''
 })
 </script>
 

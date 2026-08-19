@@ -1,42 +1,32 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
+import { Column, DataTable } from '@/ui/lazy-components'
+import { useConfirmDelete, useNotify } from '@/ui/feedback'
 import EmptyState from '@/components/EmptyState.vue'
 import { apiMessage } from '@/api/client'
 import { formatDate, useTaskMeta } from '@/composables/useTaskMeta'
 import { useAuthStore } from '@/stores/auth'
-import { employeesApi, usersApi } from '@/api'
-import { rules, useValidation } from '@/composables/useValidation'
 import { useEmployeesStore } from '@/stores/employees'
-import type { Task, User } from '@/types'
-import { Column, DataTable, Dialog, Password } from '@/ui/lazy-components'
-import { useConfirmDelete, useNotify } from '@/ui/feedback'
+import type { Task } from '@/types'
 
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
-const confirmDelete = useConfirmDelete()
 const notify = useNotify()
+const confirmDelete = useConfirmDelete()
 const auth = useAuthStore()
 const employees = useEmployeesStore()
 const { statusLabel, statusSeverity, priorityLabel, prioritySeverity } = useTaskMeta()
 
 const loading = ref(true)
-const accessDialog = ref(false)
-const grantingAccess = ref(false)
-const accessForm = reactive({ password: '' })
-
-const accessValidation = useValidation(accessForm, {
-  password: [rules.required(t('auth.passwordRequired')), rules.minLength(6, t('auth.passwordMin'))],
-})
-
-const linkDialog = ref(false)
-const linking = ref(false)
-const freeAccounts = ref<User[]>([])
-const selectedAccount = ref<number | null>(null)
 const employee = computed(() => employees.current)
-const canManage = auth.can('admin', 'manager')
+
+/** Карточками администраторов управляет только администратор. */
+const canManage = computed(
+  () => auth.can('admin', 'manager') && (employee.value?.account?.role !== 'admin' || auth.can('admin')),
+)
 
 const details = computed(() => [
   { label: t('employees.email'), value: employee.value?.email ?? '—' },
@@ -56,77 +46,18 @@ onMounted(async () => {
   }
 })
 
-/** Аккаунты без карточки — только их и можно привязать. */
-async function openLinkDialog(): Promise<void> {
-  selectedAccount.value = null
-  linkDialog.value = true
-  try {
-    freeAccounts.value = (await usersApi.list({ unlinked: true })).data
-  } catch (error) {
-    notify.error(apiMessage(error))
-  }
-}
-
-async function linkAccount(): Promise<void> {
-  if (!employee.value || !selectedAccount.value) return
-
-  linking.value = true
-  try {
-    employees.current = await employeesApi.linkAccount(employee.value.id, selectedAccount.value)
-    notify.success(t('employees.accessGranted'))
-    linkDialog.value = false
-  } catch (error) {
-    notify.error(apiMessage(error))
-  } finally {
-    linking.value = false
-  }
-}
-
-function openAccessDialog(): void {
-  accessForm.password = ''
-  accessValidation.clear()
-  accessDialog.value = true
-}
-
-/** Аккаунт заводится на email из карточки — данные не разъезжаются. */
-async function grantAccess(): Promise<void> {
-  if (!employee.value || !accessValidation.validate()) return
-
-  grantingAccess.value = true
-  try {
-    employees.current = await employeesApi.grantAccess(employee.value.id, { password: accessForm.password })
-    notify.success(t('employees.accessGranted'))
-    accessDialog.value = false
-  } catch (error) {
-    notify.error(apiMessage(error))
-  } finally {
-    grantingAccess.value = false
-  }
-}
-
-async function revokeAccess(): Promise<void> {
-  if (!employee.value) return
-
-  try {
-    employees.current = await employeesApi.revokeAccess(employee.value.id)
-    notify.success(t('employees.accessRevoked'))
-  } catch (error) {
-    notify.error(apiMessage(error))
-  }
-}
-
 function remove(): void {
   if (!employee.value) return
 
   confirmDelete(t('employees.deleteConfirm', { name: employee.value.full_name }), async () => {
-      try {
-        await employees.remove(employee.value!.id)
-        notify.success(t('common.deleted'))
-        await router.push({ name: 'employees' })
-      } catch (error) {
-        notify.error(apiMessage(error))
-      }
-    })
+    try {
+      await employees.remove(employee.value!.id)
+      notify.success(t('common.deleted'))
+      await router.push({ name: 'employees' })
+    } catch (error) {
+      notify.error(apiMessage(error))
+    }
+  })
 }
 </script>
 
@@ -163,13 +94,21 @@ function remove(): void {
       <section class="wf-card profile__card">
         <Avatar
           :image="employee.avatar ?? undefined"
-          :label="employee.avatar ? undefined : `${employee.first_name[0]}${employee.last_name[0]}`"
+          :label="employee.avatar ? undefined : `${employee.first_name[0] ?? ''}${employee.last_name[0] ?? ''}`"
           shape="circle"
           size="xlarge"
         />
         <h2 class="profile__name">{{ employee.full_name }}</h2>
         <p class="wf-muted profile__position">{{ employee.position ?? '—' }}</p>
-        <Tag v-if="employee.department" :value="employee.department.name" severity="secondary" rounded />
+        <div class="profile__tags">
+          <Tag v-if="employee.department" :value="employee.department.name" severity="secondary" rounded />
+          <Tag
+            v-if="employee.account"
+            :value="t(`roles.${employee.account.role}`)"
+            :severity="employee.account.role === 'admin' ? 'danger' : employee.account.role === 'manager' ? 'warn' : 'info'"
+            rounded
+          />
+        </div>
 
         <ul class="details">
           <li v-for="row in details" :key="row.label" class="details__row">
@@ -179,40 +118,23 @@ function remove(): void {
         </ul>
       </section>
 
-      <section v-if="canManage" class="wf-card access">
-        <h3 class="access__title">
-          <i class="pi pi-key" />
-          {{ t('employees.access') }}
-        </h3>
+      <section class="wf-card access">
+        <h3 class="access__title"><i class="pi pi-key" />{{ t('employees.access') }}</h3>
 
-        <template v-if="employee.account">
-          <p class="access__text">
-            {{ t('employees.accessActive') }}
-            <b>{{ employee.account.email }}</b>
-            <Tag :value="t(`roles.${employee.account.role}`)" severity="secondary" rounded class="access__role" />
-          </p>
-          <Button
-            :label="t('employees.revokeAccess')"
-            icon="pi pi-ban"
-            severity="danger"
-            outlined
-            size="small"
-            @click="revokeAccess"
-          />
-        </template>
+        <p v-if="employee.account" class="access__text">
+          {{ t('employees.accessActive') }} <b>{{ employee.account.email }}</b>
+        </p>
+        <p v-else class="access__text wf-muted">{{ t('employees.accessNone') }}</p>
 
-        <template v-else>
-          <p class="access__text wf-muted">{{ t('employees.accessNone') }}</p>
-          <Button :label="t('employees.grantAccess')" icon="pi pi-key" size="small" @click="openAccessDialog" />
-          <Button
-            :label="t('employees.linkAccount')"
-            icon="pi pi-link"
-            severity="secondary"
-            outlined
-            size="small"
-            @click="openLinkDialog"
-          />
-        </template>
+        <Button
+          v-if="canManage"
+          :label="employee.account ? t('employees.changeAccess') : t('employees.grantAccess')"
+          icon="pi pi-pencil"
+          severity="secondary"
+          outlined
+          size="small"
+          @click="router.push({ name: 'employees.edit', params: { id: route.params.id } })"
+        />
       </section>
 
       <section class="wf-card profile__tasks">
@@ -243,72 +165,6 @@ function remove(): void {
         <EmptyState v-else :text="t('tasks.empty')" icon="pi pi-list-check" />
       </section>
     </div>
-    <Dialog
-      v-model:visible="linkDialog"
-      :header="t('employees.linkAccount')"
-      modal
-      :style="{ width: '420px' }"
-    >
-      <p class="wf-muted access__hint">{{ t('employees.linkHint') }}</p>
-
-      <Select
-        v-model="selectedAccount"
-        :options="freeAccounts"
-        option-label="email"
-        option-value="id"
-        :placeholder="t('employees.linkPlaceholder')"
-        :empty-message="t('employees.linkEmpty')"
-        filter
-        fluid
-      >
-        <template #option="{ option }: { option: User }">
-          <div class="link-option">
-            <span>{{ option.name }}</span>
-            <small class="wf-muted">{{ option.email }} · {{ t(`roles.${option.role}`) }}</small>
-          </div>
-        </template>
-      </Select>
-
-      <template #footer>
-        <Button :label="t('common.cancel')" severity="secondary" outlined @click="linkDialog = false" />
-        <Button
-          :label="t('employees.linkAccount')"
-          :disabled="!selectedAccount"
-          :loading="linking"
-          @click="linkAccount"
-        />
-      </template>
-    </Dialog>
-
-    <Dialog
-      v-model:visible="accessDialog"
-      :header="t('employees.grantAccess')"
-      modal
-      :style="{ width: '420px' }"
-    >
-      <p class="wf-muted access__hint">{{ t('employees.accessHint', { email: employee?.email }) }}</p>
-
-      <div class="wf-field">
-        <label for="access-password" class="wf-field__label">{{ t('auth.password') }}</label>
-        <Password
-          input-id="access-password"
-          v-model="accessForm.password"
-          toggle-mask
-          :invalid="Boolean(accessValidation.errors.password)"
-          fluid
-          autofocus
-          @blur="accessValidation.validateField('password')"
-        />
-        <small v-if="accessValidation.errors.password" class="wf-field__error">
-          {{ accessValidation.errors.password }}
-        </small>
-      </div>
-
-      <template #footer>
-        <Button :label="t('common.cancel')" severity="secondary" outlined @click="accessDialog = false" />
-        <Button :label="t('employees.grantAccess')" :loading="grantingAccess" @click="grantAccess" />
-      </template>
-    </Dialog>
   </div>
 </template>
 
@@ -340,6 +196,13 @@ function remove(): void {
   font-size: 13px;
 }
 
+.profile__tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
 .details {
   width: 100%;
   margin: 18px 0 0;
@@ -368,7 +231,6 @@ function remove(): void {
 }
 
 .access {
-  grid-column: 1 / -1;
   padding: 18px;
   display: flex;
   align-items: center;
@@ -389,28 +251,10 @@ function remove(): void {
   margin: 0;
   font-size: 13px;
   flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.access__role {
-  margin-left: 4px;
-}
-
-.link-option {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.25;
-}
-
-.access__hint {
-  margin: 0 0 16px;
-  font-size: 12.5px;
 }
 
 .profile__tasks {
+  grid-column: 2;
   padding: 18px;
 }
 
@@ -436,6 +280,10 @@ function remove(): void {
 @media (max-width: 900px) {
   .profile {
     grid-template-columns: 1fr;
+  }
+
+  .profile__tasks {
+    grid-column: 1;
   }
 }
 </style>

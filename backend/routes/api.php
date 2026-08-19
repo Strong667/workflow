@@ -5,11 +5,9 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\AvatarController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\DepartmentController;
-use App\Http\Controllers\Api\EmployeeAccountController;
 use App\Http\Controllers\Api\EmployeeController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\TaskController;
-use App\Http\Controllers\Api\UserController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('login', [AuthController::class, 'login'])->middleware('throttle:10,1');
@@ -38,8 +36,6 @@ Route::middleware('jwt.guard')->group(function () {
         // читала его напрямую через API в обход роутера.
         Route::get('activity-logs', [ActivityLogController::class, 'index']);
 
-        Route::apiResource('users', UserController::class);
-
         // Заводить и удалять задачи может только руководство.
         Route::post('tasks', [TaskController::class, 'store']);
         Route::delete('tasks/{task}', [TaskController::class, 'destroy']);
@@ -47,9 +43,6 @@ Route::middleware('jwt.guard')->group(function () {
         Route::post('employees', [EmployeeController::class, 'store']);
         Route::put('employees/{employee}', [EmployeeController::class, 'update']);
         Route::delete('employees/{employee}', [EmployeeController::class, 'destroy']);
-        Route::post('employees/{employee}/account', [EmployeeAccountController::class, 'store']);
-        Route::put('employees/{employee}/account', [EmployeeAccountController::class, 'update']);
-        Route::delete('employees/{employee}/account', [EmployeeAccountController::class, 'destroy']);
 
         Route::post('departments', [DepartmentController::class, 'store']);
         Route::put('departments/{department}', [DepartmentController::class, 'update']);
