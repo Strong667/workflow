@@ -12,10 +12,10 @@ const STATUS_SEVERITIES: Record<TaskStatus, Severity> = {
 }
 
 const STATUS_COLOR_VARS: Record<TaskStatus, [string, string]> = {
-  todo: ['--p-surface-400', '#94a3b8'],
-  in_progress: ['--p-blue-500', '#3b82f6'],
-  review: ['--p-amber-500', '#f59e0b'],
-  done: ['--p-green-500', '#22c55e'],
+  todo: ['--wf-todo', '#9ba2aa'],
+  in_progress: ['--wf-progress', '#2f6fed'],
+  review: ['--wf-review', '#d98613'],
+  done: ['--wf-done', '#1c9a5f'],
 }
 
 const PRIORITY_SEVERITIES: Record<TaskPriority, Severity> = {
@@ -25,9 +25,9 @@ const PRIORITY_SEVERITIES: Record<TaskPriority, Severity> = {
 }
 
 const PRIORITY_COLOR_VARS: Record<TaskPriority, [string, string]> = {
-  low: ['--p-surface-400', '#94a3b8'],
-  medium: ['--p-amber-500', '#f59e0b'],
-  high: ['--p-red-500', '#ef4444'],
+  low: ['--wf-todo', '#9ba2aa'],
+  medium: ['--wf-review', '#d98613'],
+  high: ['--wf-danger', '#d8412f'],
 }
 
 /** Единый источник подписей, цветов и severity для статусов и приоритетов задач. */

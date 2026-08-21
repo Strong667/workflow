@@ -3,82 +3,69 @@ withDefaults(
   defineProps<{
     label: string
     value: number | string
-    icon: string
-    tone?: 'primary' | 'success' | 'warn' | 'danger'
+    hint?: string
+    tone?: 'default' | 'danger'
     loading?: boolean
   }>(),
-  { tone: 'primary', loading: false },
+  { hint: '', tone: 'default', loading: false },
 )
 </script>
 
 <template>
-  <div class="stat wf-card">
-    <div class="stat__icon" :class="`stat__icon--${tone}`">
-      <i :class="icon" />
-    </div>
-    <div class="stat__body">
-      <span class="stat__label">{{ label }}</span>
-      <Skeleton v-if="loading" width="4rem" height="1.6rem" />
-      <span v-else class="stat__value">{{ value }}</span>
+  <div class="stat wf-card" :class="{ 'stat--danger': tone === 'danger' }">
+    <span class="wf-eyebrow stat__label">{{ label }}</span>
+    <div class="stat__row">
+      <Skeleton v-if="loading" width="3rem" height="1.9rem" />
+      <span v-else class="wf-mono stat__value">{{ value }}</span>
+      <span v-if="hint && !loading" class="stat__hint">{{ hint }}</span>
     </div>
   </div>
 </template>
 
 <style scoped lang="scss">
 .stat {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 18px;
-}
-
-.stat__icon {
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  display: grid;
-  place-items: center;
-  flex: 0 0 auto;
-  font-size: 18px;
-
-  &--primary {
-    background: color-mix(in srgb, var(--p-primary-color) 14%, transparent);
-    color: var(--p-primary-color);
-  }
-
-  &--success {
-    background: color-mix(in srgb, var(--p-green-500) 14%, transparent);
-    color: var(--p-green-500);
-  }
-
-  &--warn {
-    background: color-mix(in srgb, var(--p-amber-500) 16%, transparent);
-    color: var(--p-amber-500);
-  }
-
-  &--danger {
-    background: color-mix(in srgb, var(--p-red-500) 14%, transparent);
-    color: var(--p-red-500);
-  }
-}
-
-.stat__body {
+  padding: 13px 15px 14px;
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  min-width: 0;
+  gap: 7px;
+  position: relative;
+  overflow: hidden;
+
+  /* Просроченное подсвечиваем полосой слева, а не заливкой */
+  &--danger {
+    border-color: color-mix(in srgb, var(--wf-danger) 35%, var(--wf-line));
+
+    &::before {
+      content: '';
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 3px;
+      background: var(--wf-danger);
+    }
+
+    .stat__label,
+    .stat__value {
+      color: var(--wf-danger);
+    }
+  }
 }
 
-.stat__label {
-  font-size: 12px;
-  color: var(--wf-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
+.stat__row {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  min-height: 30px;
 }
 
 .stat__value {
-  font-size: 24px;
-  font-weight: 680;
-  line-height: 1.1;
+  font-size: 26px;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.stat__hint {
+  font-size: 11.5px;
+  color: var(--wf-ink-3);
 }
 </style>

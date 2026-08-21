@@ -1,21 +1,49 @@
 :root {
-  --wf-sidebar-width: 248px;
-  --wf-sidebar-width-collapsed: 68px;
-  --wf-header-height: 62px;
+  --wf-sidebar-width: 232px;
+  --wf-sidebar-width-collapsed: 60px;
+  --wf-header-height: 52px;
 
-  --wf-surface: var(--p-content-background);
-  --wf-page-bg: var(--p-surface-50);
-  --wf-border: var(--p-content-border-color);
-  --wf-text: var(--p-text-color);
-  --wf-text-muted: var(--p-text-muted-color);
-  --wf-primary: var(--p-primary-color);
-  --wf-radius: 14px;
-  --wf-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 4px 16px rgba(16, 24, 40, 0.05);
+  --wf-bg: #f3f1ec;
+  --wf-surface: #ffffff;
+  --wf-surface-2: #faf8f3;
+  --wf-surface-3: #f0ede6;
+  --wf-ink: #15171a;
+  --wf-ink-2: #565c64;
+  --wf-ink-3: #8b9199;
+  --wf-line: #e4e0d7;
+  --wf-line-2: #eeebe3;
+  --wf-tint: rgba(21, 23, 26, 0.045);
+
+  --wf-accent: #d8f24b;
+  --wf-todo: #9ba2aa;
+  --wf-progress: #2f6fed;
+  --wf-review: #d98613;
+  --wf-done: #1c9a5f;
+  --wf-danger: #d8412f;
+
+  --wf-radius: 11px;
+  --wf-radius-sm: 8px;
+
+  --wf-mono: 'JetBrains Mono', ui-monospace, monospace;
 }
 
 html.dark {
-  --wf-page-bg: var(--p-surface-950);
-  --wf-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --wf-bg: #0c0d0f;
+  --wf-surface: #15171a;
+  --wf-surface-2: #1a1d21;
+  --wf-surface-3: #22262b;
+  --wf-ink: #f1efe9;
+  --wf-ink-2: #a5abb3;
+  --wf-ink-3: #6b7178;
+  --wf-line: #262a2f;
+  --wf-line-2: #1f2327;
+  --wf-tint: rgba(255, 255, 255, 0.05);
+
+  --wf-todo: #7c838b;
+  --wf-progress: #5a8cf5;
+  --wf-review: #e5a93f;
+  --wf-done: #3bb77e;
+  --wf-danger: #ec6152;
 }
 
 * {
@@ -30,10 +58,11 @@ body,
 }
 
 body {
-  background: var(--wf-page-bg);
-  color: var(--wf-text);
-  font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', sans-serif;
-  font-size: 14px;
+  background: var(--wf-bg);
+  color: var(--wf-ink);
+  font-family: 'Instrument Sans', system-ui, -apple-system, sans-serif;
+  font-size: 13px;
+  line-height: 1.45;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -42,72 +71,99 @@ a {
   text-decoration: none;
 }
 
+::selection {
+  background: var(--wf-accent);
+  color: #16181b;
+}
+
+/* Цифры, даты и идентификаторы — моноширинные */
+.wf-mono {
+  font-family: var(--wf-mono);
+  font-variant-numeric: tabular-nums;
+}
+
 .wf-card {
   background: var(--wf-surface);
-  border: 1px solid var(--wf-border);
+  border: 1px solid var(--wf-line);
   border-radius: var(--wf-radius);
-  box-shadow: var(--wf-shadow);
 }
 
 .wf-page {
-  padding: 24px;
+  padding: 16px 18px 40px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 12px;
 }
 
 .wf-page__header {
   display: flex;
-  align-items: flex-start;
+  align-items: flex-end;
   justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
   flex-wrap: wrap;
 }
 
 .wf-page__title {
   margin: 0;
-  font-size: 22px;
-  font-weight: 650;
-  letter-spacing: -0.2px;
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
 }
 
 .wf-page__subtitle {
-  margin: 4px 0 0;
-  color: var(--wf-text-muted);
-  font-size: 13px;
+  margin: 3px 0 0;
+  color: var(--wf-ink-3);
+  font-size: 12px;
+}
+
+/* Надзаголовок секции: моно, капс, широкий трекинг */
+.wf-eyebrow {
+  font-family: var(--wf-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--wf-ink-3);
+}
+
+.wf-panel-title {
+  margin: 0 0 12px;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
 .wf-toolbar {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
   align-items: center;
 }
 
 .wf-muted {
-  color: var(--wf-text-muted);
+  color: var(--wf-ink-3);
 }
 
 .wf-grid {
   display: grid;
-  gap: 16px;
+  gap: 10px;
 }
 
 .wf-field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  margin-bottom: 18px;
+  gap: 5px;
+  margin-bottom: 14px;
 }
 
 .wf-field__label {
-  font-size: 13px;
-  font-weight: 550;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--wf-ink-2);
 }
 
 .wf-field__error {
-  font-size: 12px;
-  color: var(--p-red-500);
+  font-size: 11.5px;
+  color: var(--wf-danger);
 }
 
 .fade-enter-active,
@@ -118,7 +174,7 @@ a {
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
-  transform: translateY(6px);
+  transform: translateY(4px);
 }
 
 .list-move,
@@ -133,33 +189,52 @@ a {
   transform: scale(0.97);
 }
 
-/* Аватары показываются в круге: без cover непрямоугольная картинка сжимается */
+/* PrimeVue: подгоняем плотность под компактную сетку макета */
+.p-datatable-thead > tr > th {
+  font-family: var(--wf-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--wf-ink-3);
+  font-weight: 400;
+  background: transparent;
+  border-bottom: 1px solid var(--wf-line);
+  padding: 10px 12px;
+}
+
+.p-datatable-tbody > tr > td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--wf-line-2);
+  font-size: 12.5px;
+}
+
+.p-paginator {
+  background: transparent;
+  padding: 12px 4px 4px;
+}
+
+.p-button {
+  font-size: 12.5px;
+}
+
+.p-button-label {
+  font-weight: 600;
+}
+
+.p-avatar {
+  background: var(--wf-surface-3);
+  color: var(--wf-ink-2);
+  font-weight: 700;
+}
+
 .p-avatar img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-/* PrimeVue: убираем рамку таблицы — карточка уже даёт границу */
-.p-datatable .p-datatable-header,
-.p-datatable .p-datatable-footer {
-  background: transparent;
-}
-
-.p-datatable-thead > tr > th {
-  font-size: 11.5px;
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
-  color: var(--wf-text-muted);
-}
-
-.p-paginator {
-  background: transparent;
-  padding-inline: 0;
-}
-
 @media (max-width: 768px) {
   .wf-page {
-    padding: 16px;
+    padding: 14px 12px 32px;
   }
 }

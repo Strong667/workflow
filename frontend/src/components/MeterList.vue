@@ -1,9 +1,14 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
-const props = defineProps<{
-  items: Array<{ label: string; value: number; color?: string }>
-}>()
+const props = withDefaults(
+  defineProps<{
+    items: Array<{ label: string; value: number; color?: string }>
+    /** Подписи с цветом значения — для приоритетов задач. */
+    colorLabels?: boolean
+  }>(),
+  { colorLabels: false },
+)
 
 const max = computed(() => Math.max(1, ...props.items.map((item) => item.value)))
 </script>
@@ -11,14 +16,16 @@ const max = computed(() => Math.max(1, ...props.items.map((item) => item.value))
 <template>
   <ul class="meters">
     <li v-for="item in items" :key="item.label" class="meters__row">
-      <span class="meters__label">{{ item.label }}</span>
+      <span class="meters__label" :style="colorLabels && item.color ? { color: item.color } : undefined">
+        {{ item.label }}
+      </span>
       <span class="meters__track">
         <span
           class="meters__fill"
-          :style="{ width: `${(item.value / max) * 100}%`, background: item.color ?? 'var(--p-primary-color)' }"
+          :style="{ width: `${(item.value / max) * 100}%`, background: item.color ?? 'var(--wf-ink)' }"
         />
       </span>
-      <span class="meters__value">{{ item.value }}</span>
+      <span class="wf-mono meters__value">{{ item.value }}</span>
     </li>
   </ul>
 </template>
@@ -30,15 +37,15 @@ const max = computed(() => Math.max(1, ...props.items.map((item) => item.value))
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 9px;
 }
 
 .meters__row {
   display: grid;
-  grid-template-columns: minmax(90px, 34%) 1fr 36px;
+  grid-template-columns: minmax(78px, 30%) 1fr 30px;
   align-items: center;
-  gap: 12px;
-  font-size: 13px;
+  gap: 10px;
+  font-size: 12px;
 }
 
 .meters__label {
@@ -48,14 +55,10 @@ const max = computed(() => Math.max(1, ...props.items.map((item) => item.value))
 }
 
 .meters__track {
-  height: 8px;
+  height: 6px;
   border-radius: 999px;
-  background: var(--p-surface-200);
+  background: var(--wf-surface-3);
   overflow: hidden;
-}
-
-html.dark .meters__track {
-  background: var(--p-surface-700);
 }
 
 .meters__fill {
@@ -67,7 +70,6 @@ html.dark .meters__track {
 
 .meters__value {
   text-align: right;
-  font-variant-numeric: tabular-nums;
-  color: var(--wf-text-muted);
+  font-size: 12px;
 }
 </style>

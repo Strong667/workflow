@@ -31,7 +31,7 @@ const ui = useUiStore()
 .layout__sidebar {
   width: var(--wf-sidebar-width);
   flex: 0 0 var(--wf-sidebar-width);
-  transition: width 0.2s ease, flex-basis 0.2s ease;
+  transition: width 0.18s ease, flex-basis 0.18s ease;
 }
 
 .layout--collapsed .layout__sidebar {

@@ -30,14 +30,15 @@ export interface ChartTokens {
 
 function readTokens(): ChartTokens {
   return {
-    primary: resolveToken('--p-primary-500', '#6366f1'),
-    success: resolveToken('--p-green-500', '#22c55e'),
-    warn: resolveToken('--p-amber-500', '#f59e0b'),
-    danger: resolveToken('--p-red-500', '#ef4444'),
-    neutral: resolveToken('--p-surface-400', '#94a3b8'),
-    text: resolveToken('--p-text-color', '#1f2937'),
-    muted: resolveToken('--p-text-muted-color', '#6b7280'),
-    grid: resolveToken('--p-content-border-color', '#e5e7eb'),
+    // Столбики «создано» — графит (в тёмной теме светлый), «завершено» — цитрон.
+    primary: resolveToken('--wf-ink', '#15171a'),
+    success: resolveToken('--wf-accent', '#d8f24b'),
+    warn: resolveToken('--wf-review', '#d98613'),
+    danger: resolveToken('--wf-danger', '#d8412f'),
+    neutral: resolveToken('--wf-todo', '#9ba2aa'),
+    text: resolveToken('--wf-ink', '#15171a'),
+    muted: resolveToken('--wf-ink-3', '#8b9199'),
+    grid: resolveToken('--wf-line', '#e4e0d7'),
   }
 }
 
